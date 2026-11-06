@@ -75,30 +75,9 @@
 
 </details>
 
-## 开始编译（GitHub Actions）
+## CI/CD工作流（GitHub Actions）
 
-1. 把本项目文件提交到自己的 GitHub 仓库（如果尚未建仓库，请看下方「初次发布」）。
-2. 打开 **[Actions → Build Redmi AX6 Tiny](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions/workflows/build.yml)**。
-3. 点击 **Run workflow**；第一版先保持 `publish_prerelease=false`。
-4. 等待编译完成后，查看日志里 `Configure AX6 stock profile`、`Audit and collect images` 是否通过。
-5. 从 Artifacts 下载构建结果，检查 **`BUILD-REPORT.md`、`*.manifest`、`SHA256SUMS`**。没有验证之前**先不要刷机**。
-
-此工作流默认每周日 03:17 UTC（香港时间 11:17）自动尝试构建一次，方便发现上游兼容性变化。Actions 资源、计费、磁盘空间限制以 GitHub 当前账户计划和官方规则为准。
-
-### 初次创建并推送仓库
-
-在有 `git` 与 GitHub CLI (`gh`) 的电脑上，解压项目到本地，然后运行：
-
-```bash
-gh auth login
-cd AX6-OpenWrt-Tiny
-git init -b main
-git add .
-git commit -m "feat: initialize minimal AX6 firmware build"
-gh repo create Steven-ZYC/AX6-OpenWrt-Tiny --public --source=. --remote=origin --push
-```
-
-若仓库已在网页创建，改用 `git remote add origin ... && git push -u origin main`，不要重复创建。**本 README 中的 Steven-ZYC 链接只有在对应仓库实际创建后才生效。**
+本项目工作流默认每周日 03:17 UTC（香港时间 11:17）自动尝试构建一次，方便发现上游兼容性变化。Actions 资源、计费、磁盘空间限制以 GitHub 当前账户计划和官方规则为准。
 
 ## 本地编译（Ubuntu 24.04）
 
