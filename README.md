@@ -138,6 +138,10 @@ AX6-OpenWrt-Tiny/
 └── README.md
 ```
 
+## 构建兼容性说明
+
+ImmortalWrt 25.12 的包元数据生成器可能触发上游已知的 Kconfig 自循环依赖（例如 dnsdist/snort3）。本项目临时 backport [OpenWrt PR #26444](https://github.com/openwrt/openwrt/pull/26444)，并修正单设备 stock Profile 检查。参见 [编译指南](docs/BUILDING.md#6-2026-11-07kconfig-自循环依赖修正)。补丁不改变固件中的代理规则或额外安装这些软件包。
+
 ## 常见问题
 
 **Q：可以直接把生成的 `factory.ubi` 刷进去吗？**  

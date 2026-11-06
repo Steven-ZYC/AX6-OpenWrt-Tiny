@@ -4,6 +4,25 @@ set -Eeuo pipefail
 
 [[ -x ./scripts/feeds ]] || { echo 'ERROR: run in the ImmortalWrt source root.' >&2; exit 1; }
 
+# Temporary backport of OpenWrt PR #26444: fixes self-referential Kconfig
+# dependencies generated for packages such as dnsdist, snort3 and weechat.
+# Fail closed when the upstream implementation changes; do not ignore errors.
+patch_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/patches/0001-fix-upstream-kconfig-virtual-deps.patch"
+meta='scripts/package-metadata.pl'
+[[ -f "$meta" && -f "$patch_file" ]] || {
+  echo 'ERROR: package-metadata.pl or Kconfig compatibility patch missing.' >&2; exit 1;
+}
+printf '::group::OpenWrt package-metadata compatibility fix\n'
+if grep -Fq 'Re-emitted deps carry the pre-rank' "$meta"; then
+  echo 'Upstream self-dependency fix already present; skipping patch.'
+else
+  patch --batch --forward -p1 --input "$patch_file"
+  grep -Fq 'Re-emitted deps carry the pre-rank' "$meta" || {
+    echo 'ERROR: expected package-metadata fix was not applied.' >&2; exit 1;
+  }
+fi
+printf '::endgroup::\n'
+
 printf '::group::Update feeds\n'
 ./scripts/feeds update -a
 printf '::endgroup::\n'

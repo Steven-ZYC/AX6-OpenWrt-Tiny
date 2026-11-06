@@ -66,3 +66,11 @@ grep -E '^(sing-box(-tiny)?|luci-app-homeproxy) ' ../AX6-OpenWrt-Tiny/dist/*.man
 4. `collect.sh` 未找到固件：先看 `bin/targets/qualcommax/ipq807x/` 的实际文件名，再判断是否设备 Profile 变更。
 5. `collect.sh` 报完整版 sing-box：保持失败，不要发布含有两个代理核心的固件。
 6. 刷机后无法联网：保留串口 / 网络恢复路径；需要在真机检查，不应仅依赖 Actions 静态验证。
+
+## 6. 2026-11-07：Kconfig 自循环依赖修正
+
+当前 25.12 稳定分支存在上游包元数据逻辑问题。它可能使 `dnsdist`、`snort3`、`knot-resolver`、`luci-app-weechat` 等未被选中的包也在 `make defconfig` 阶段报出 self-dependency。这里并不是要安装这些服务，也不应通过随意删除软件包来绕过报错。
+
+本仓库在 `scripts/prepare.sh` 阶段引入了 [OpenWrt PR #26444](https://github.com/openwrt/openwrt/pull/26444) 的 *package-metadata* 修复补丁。若上游已经包含相同修复则跳过；否则严格应用补丁，失败时中止，不会静默忽略。上游合并后可以移除此临时 backport。
+
+另一个独立问题是设备 Profile：**单设备构建**应选择 `CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6-stock=y`；`CONFIG_TARGET_DEVICE_...` 属于 **TARGET_MULTI_PROFILE 多设备构建菜单**，不能据此判断单设备是否正确选中。固定检查已加入 `scripts/check-config.sh`。
