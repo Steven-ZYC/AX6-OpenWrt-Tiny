@@ -1,0 +1,22 @@
+name: Validate build recipes
+
+on:
+  push:
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/**'
+      - 'configs/**'
+      - 'tests/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell scripts and fail-closed guards
+        run: bash tests/smoke.sh

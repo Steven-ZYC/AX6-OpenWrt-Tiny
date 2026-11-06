@@ -1,0 +1,5 @@
+openwrt/
+dist/
+.ccache/
+*.tmp
+.DS_Store
