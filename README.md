@@ -25,7 +25,7 @@
 - **保留好用的 LuCI**：包含 Argon、HomeProxy 和中文翻译；不为极限压缩删除网络、防火墙或必要硬件驱动。
 - **追求固件体积可量化**：参考旧固件的 SquashFS **1024 KiB 块大小**思路，生成 manifest、完整 `.config`、SHA256 与体积报告。XZ 算法是否实际采用应检查最终生成的文件系统，不能单凭配置片段推断。
 - **可复现、易更新**：GitHub Actions 定期或手动从上游源码构建；发布包记录上游 Git commit 和所打包的软件包。
-- **先稳定，再考虑 NSS**：首版沿用 ImmortalWrt `openwrt-25.12` 的主线设备支持，不额外叠加第三方 NSS patchset。
+- **先确认 PPE，再考虑 NSS Wi-Fi**：当前 25.12 使用旧的 `qca-nss-dp` 数据路径，并不等于已有新 `qca_ppe` 硬件 Flow Offload。迁移安全门槛与实验计划见 [硬件加速路线](docs/HARDWARE-ACCELERATION.md)。
 
 ### 固件信息
 
@@ -44,7 +44,7 @@
 | 压缩块大小 | SquashFS 1024 KiB；压缩算法需检查实际镜像 |
 | 存储优化目标 | ****Factory UBI ≤28 MiB 硬性限制**** sysupgrade 包，**超过则构建失败；仍须检查设备实际分区和坏块 |
 | 默认 LAN IP / 凭据 | 以构建时上游默认值为准；**不预置通用密码** |
-| NSS / Wi-Fi | 保留上游设备支持；本项目不额外宣称第三方 NSS 硬件加速性能 |
+| PPE / NSS / Wi-Fi | 当前保留旧驱动与 Wi-Fi 支持，**未验证 PPE/NSS 加速**；构建报告附静态数据路径审计 |
 
 ## 构建状态与下载
 
@@ -52,7 +52,7 @@
 | :-- | :-- | :-- | :-- | :-- |
 | **AX6 Tiny · stock** | [`redmi_ax6-stock`](configs/redmi-ax6-stock.config) | [![Build](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions/workflows/build.yml/badge.svg)](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions/workflows/build.yml) | [Actions Artifacts](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions) · [Releases](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/releases) | **实验性，待首编与实机验证** |
 
-自动构建产物包含镜像、`*.manifest`、`build.config`、`BUILD-REPORT.md` 和 `SHA256SUMS`。每次成功构建的三个独立 Artifact 在 Actions → 对应 run → **Artifacts** 下载（默认保留 14 天）。固件分三个独立 Artifact：**Sysupgrade、Factory UBI、元数据报告**，避免把整个合集 ZIP 大小误认为单个可刷入镜像。若 Factory UBI 大于 28 MiB，构建直接失败，不上传任何固件。只有在手动构建时选择 `publish_prerelease=true` 才会创建标记为 **Pre-release** 的测试发布；定时构建不会自动发布可刷写固件。
+自动构建产物包含镜像、`*.manifest`、`build.config`、`BUILD-REPORT.md`、`DATAPATH-AUDIT.md` 和 `SHA256SUMS`。每次成功构建的三个独立 Artifact 在 Actions → 对应 run → **Artifacts** 下载（默认保留 14 天）。固件分三个独立 Artifact：**Sysupgrade、Factory UBI、元数据报告**，避免把整个合集 ZIP 大小误认为单个可刷入镜像。若 Factory UBI 大于 28 MiB，构建直接失败，不上传任何固件。只有在手动构建时选择 `publish_prerelease=true` 才会创建标记为 **Pre-release** 的测试发布；定时构建不会自动发布可刷写固件。
 
 ## 集成组件
 
