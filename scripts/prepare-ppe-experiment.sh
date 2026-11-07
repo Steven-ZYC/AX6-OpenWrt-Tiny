@@ -172,7 +172,7 @@ boot_patch = """\tredmi,ax6-stock)
 \t\tfw_setenv flag_boot_success 1
 \t;;
 """
-replace_once(bootcount, boot_old, boot_patch + boot_old)
+replace_once(bootcount, boot_old, '\t;;\n' + boot_patch + '\tesac\n}\n')
 
 # Keep the same stock-style upgrade selection as ImmortalWrt 25.12.
 # In addition, FAIL on missing/unexpected boot flag instead of guessing a slot.
