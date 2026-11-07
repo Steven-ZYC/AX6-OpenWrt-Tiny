@@ -81,4 +81,30 @@ printf 'define Device/redmi_ax6\nendef\n' > "$work/target/linux/qualcommax/image
 if (cd "$work" && bash "$repo/scripts/audit-datapath.sh" .config datapath-audit.md >/dev/null 2>&1); then
   echo 'ERROR: missing stock definition incorrectly accepted by datapath audit' >&2; exit 1
 fi
+# Experimental PPE-only profile port must match reviewed upstream structure.
+mkdir -p "$work/ppe/target/linux/qualcommax/ipq807x" "$work/ppe/target/linux/qualcommax/image"
+printf 'KERNEL_PATCHVER:=6.18\n' > "$work/ppe/target/linux/qualcommax/Makefile"
+printf 'CONFIG_QCOM_EDMA=y\nCONFIG_QCOM_80211AX_PPE=y\n' > "$work/ppe/target/linux/qualcommax/ipq807x/config-default"
+cat > "$work/ppe/target/linux/qualcommax/image/ipq807x.mk" <<'PPE_DEVICE'
+define Device/xiaomi_ax3600
+  $(call Device/FitImage)
+  $(call Device/UbiFit)
+  KERNEL_SIZE := 36608k
+endef
+define Device/redmi_ax6
+	$(call Device/xiaomi_ax3600)
+	DEVICE_VENDOR := Redmi
+	DEVICE_MODEL := AX6
+	DEVICE_PACKAGES := ipq-wifi-redmi_ax6
+endef
+TARGET_DEVICES += redmi_ax6
+PPE_DEVICE
+(cd "$work/ppe" && bash "$repo/scripts/prepare-ppe-experiment.sh")
+grep -Fqx 'TARGET_DEVICES += redmi_ax6-stock' "$work/ppe/target/linux/qualcommax/image/ipq807x.mk"
+cp "$repo/configs/redmi-ax6-ppe-only-stock.config" "$work/ppe/.config"
+(cd "$work/ppe" && bash "$repo/scripts/check-ppe-config.sh" .config)
+# Upstream image profile change must be a hard error.
+if (cd "$work/ppe" && bash "$repo/scripts/prepare-ppe-experiment.sh" >/dev/null 2>&1); then
+  echo 'ERROR: repeated PPE stock port unexpectedly accepted' >&2; exit 1
+fi
 printf 'SMOKE TESTS PASSED\n'
