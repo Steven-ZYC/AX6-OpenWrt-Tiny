@@ -54,3 +54,27 @@
 ## 四、发布决策
 
 当前主构建维持 **AX6 stock / ImmortalWrt 25.12**。完成安全适配与实际测试前，PPE-only 和 PPE+NSS 都不得被标记为可安全刷入的生产版本。发布测试版前，需人工核对真实分区与恢复方式；GitHub Actions 的构建成功不代表刷机安全。
+
+
+## 五、实验 CI/CD 的使用（新增）
+
+本项目现在分为**生产基线**与**实验验证**两条互不替代的工作流：
+
+| 工作流 | 触发方式 | 实际行为 | 输出 |
+| --- | --- | --- | --- |
+| `.github/workflows/build.yml` | 原有计划任务/手动 | ImmortalWrt 25.12 的 Tiny + HomeProxy + sing-box-tiny | 通过大小检查才有原有固件 Artifacts |
+| `.github/workflows/lint.yml` | PR/Push | 脚本和安全门槛回归测试 | CI 结果 |
+| `.github/workflows/ppe-only-experiment.yml` | PR 自动预检；手动选择 full_compile 才完整编译 | 上游 `ppe-nss` + 临时 AX6 stock Profile，**只验证 PPE 有线转发基础配置** | 仅构建日志、元数据报告；**不上传固件** |
+
+实验 Profile 在 `configs/redmi-ax6-ppe-only-stock.config` 中。为了隔离网络数据路径问题，**这一版不是完整的 Tiny 用户功能构建**，暂时不含 Argon、HomeProxy 和 sing-box-tiny，也不启用 `nss-wifi-drv`。
+
+在 PR 中，实验工作流会自动执行 `source-guard`，检查 PPE 内核配置与 AX6 stock 设备定义；不会自动启动漫长的固件编译。**GitHub 的 `workflow_dispatch` 通常需要工作流文件先存在于默认分支**；进入默认分支后可在 Actions 中选 `Experimental PPE-only AX6 stock (not flashable)` → Run workflow → `full_compile=true`。这是人工触发的诊断编译，避免 PR 每次更新都重复占用多个小时的 GitHub Runner。
+
+`full_compile` 将：
+1. 克隆上游的 `ppe-nss` 分支，并要求与预检的 commit 完全一致，防止上游 rebase 时错用不同版本。
+2. 添加经过严格字符串匹配的 AX6 stock Profile；若上游定义变化则停止构建，而不是猜测补丁如何应用。
+3. 执行 `make defconfig`、校验唯一 stock 目标和排除 NSS Wi-Fi，随后下载及编译。
+4. 要求生成且只生成一个 stock `factory.ubi` 和 `sysupgrade.bin`，用原有 `scripts/check-stock-image.py` 校验 UBI 格式、sysupgrade 结构和 **28 MiB 硬限制**。
+5. 只上传 `ppe-report/` 下的配置、上游源码 SHA、包清单和审计结果。**不会上传 `.ubi` 或 `.bin`**，也不会执行发布/刷机步骤。
+
+安全说明：成功编译及 UBI 检查**不能证明** stock Profile 的设备树/bootloader/刷写流程与真实设备匹配。后续仍须审核真实分区布局和恢复能力，在实际测试硬件上完成端口、无线、PPE offload 流表与代理绕过风险测试，再开始整合用户功能。
