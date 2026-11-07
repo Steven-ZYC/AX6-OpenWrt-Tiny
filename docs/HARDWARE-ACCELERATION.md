@@ -64,11 +64,11 @@
 | --- | --- | --- | --- |
 | `.github/workflows/build.yml` | 原有计划任务/手动 | ImmortalWrt 25.12 的 Tiny + HomeProxy + sing-box-tiny | 通过大小检查才有原有固件 Artifacts |
 | `.github/workflows/lint.yml` | PR/Push | 脚本和安全门槛回归测试 | CI 结果 |
-| `.github/workflows/ppe-only-experiment.yml` | PR 自动预检；手动选择 full_compile 才完整编译 | 上游 `ppe-nss` + 临时 AX6 stock Profile，**只验证 PPE 有线转发基础配置** | 仅构建日志、元数据报告；**不上传固件** |
+| `.github/workflows/ppe-only-experiment.yml` | PR 自动预检；手动 `full_compile=true`，或同仓库 PR 标题临时添加 `[PPE-FULL-COMPILE]` 后推送代码，才启动完整编译 | 上游 `ppe-nss` + 临时 AX6 stock Profile，**只验证 PPE 有线转发基础配置** | 仅构建日志、元数据报告；**不上传固件** |
 
 实验 Profile 在 `configs/redmi-ax6-ppe-only-stock.config` 中。为了隔离网络数据路径问题，**这一版不是完整的 Tiny 用户功能构建**，暂时不含 Argon、HomeProxy 和 sing-box-tiny，也不启用 `nss-wifi-drv`。
 
-在 PR 中，实验工作流会自动执行 `source-guard`，检查 PPE 内核配置与 AX6 stock 设备定义；不会自动启动漫长的固件编译。**GitHub 的 `workflow_dispatch` 通常需要工作流文件先存在于默认分支**；进入默认分支后可在 Actions 中选 `Experimental PPE-only AX6 stock (not flashable)` → Run workflow → `full_compile=true`。这是人工触发的诊断编译，避免 PR 每次更新都重复占用多个小时的 GitHub Runner。
+在 PR 中，实验工作流会自动执行 `source-guard`，检查 PPE 内核配置与 AX6 stock 设备定义；默认不会启动完整编译。作为手动 Dispatch 不可用时的受控备用方式，同仓库 PR 可以临时在标题添加 `[PPE-FULL-COMPILE]`，随后推送匹配路径的代码触发**单次** PR 编译；确认 run 已创建后应恢复原标题，避免后续推送再次触发。**GitHub 的 `workflow_dispatch` 通常需要工作流文件先存在于默认分支**；进入默认分支后可在 Actions 中选 `Experimental PPE-only AX6 stock (not flashable)` → Run workflow → `full_compile=true`。这是人工触发的诊断编译，避免 PR 每次更新都重复占用多个小时的 GitHub Runner。
 
 `full_compile` 将：
 1. 克隆上游的 `ppe-nss` 分支，并要求与预检的 commit 完全一致，防止上游 rebase 时错用不同版本。
