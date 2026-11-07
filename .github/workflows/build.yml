@@ -95,11 +95,34 @@ jobs:
         working-directory: openwrt
         run: bash ../scripts/collect.sh ../dist
 
-      - name: Upload all build outputs
+      # Each firmware gets its own artifact: ZIP size is NOT a flashable image size.
+      - name: Upload stock sysupgrade image
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: ax6-stock-minimal-${{ github.run_number }}
-          path: dist/
+          name: ax6-stock-sysupgrade-${{ github.run_number }}
+          path: dist/*-sysupgrade.bin
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload stock factory UBI
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ax6-stock-factory-${{ github.run_number }}
+          path: dist/*-factory.ubi
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload manifest, configuration and build report
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ax6-stock-metadata-${{ github.run_number }}
+          path: |
+            dist/*.manifest
+            dist/*.buildinfo
+            dist/*.json
+            dist/build.config
+            dist/BUILD-REPORT.md
+            dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
 

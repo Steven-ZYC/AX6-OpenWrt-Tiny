@@ -12,6 +12,13 @@ if (( ${#firmwares[@]} != 1 )); then
   printf 'ERROR: expected exactly one stock-layout sysupgrade image, found %d\n' "${#firmwares[@]}" >&2
   exit 1
 fi
+factory_images=("$folder"/*redmi_ax6-stock*squashfs-factory.ubi)
+if (( ${#factory_images[@]} != 1 )); then
+  printf 'ERROR: expected exactly one stock-layout factory UBI, found %d\n' "${#factory_images[@]}" >&2
+  exit 1
+fi
+# Gate before uploading anything. An oversize artifact must fail the whole job.
+image_report="$(python3 "$(dirname "${BASH_SOURCE[0]}")/check-stock-image.py" "${firmwares[0]}" "${factory_images[0]}")"
 images=("$folder"/*redmi_ax6-stock*squashfs-*.bin "$folder"/*redmi_ax6-stock*squashfs-*.ubi)
 for f in "${images[@]}"; do cp -v "$f" "$out/"; done
 for f in "$folder"/*.manifest "$folder"/*.buildinfo "$folder"/profiles.json; do
@@ -36,7 +43,6 @@ done
 file="${firmwares[0]}"
 bytes="$(stat -c '%s' "$file")"
 size_mib="$(awk -v b="$bytes" 'BEGIN {printf "%.2f", b/1048576}')"
-warn_above_mib=30
 {
   echo '# AX6 OpenWrt Tiny — build report'
   echo
@@ -50,11 +56,7 @@ warn_above_mib=30
   done
   echo "- Device: Redmi AX6 (stock partition layout only)"
   echo "- Firmware sysupgrade archive size: **$size_mib MiB** ($bytes bytes)"
-  if (( bytes > warn_above_mib*1048576 )); then
-    echo "- Size target: **ABOVE** experimental $warn_above_mib MiB goal (not necessarily unsafe/safe)."
-  else
-    echo "- Size target: within experimental $warn_above_mib MiB goal (not a flashing guarantee)."
-  fi
+  printf '%s\n' "$image_report"
   echo '- Hardware validation: **NOT PERFORMED by GitHub Actions**.'
   echo '- Never choose image solely by archive size. Confirm physical flash layout before flashing.'
 } > "$out/BUILD-REPORT.md"

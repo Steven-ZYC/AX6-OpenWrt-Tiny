@@ -42,7 +42,7 @@
 | 代理协议目标 | VLESS + Reality、Shadowsocks（以真实节点验证为准） |
 | 透明代理 | Firewall4 + nftables TProxy 相关依赖 |
 | 压缩块大小 | SquashFS 1024 KiB；压缩算法需检查实际镜像 |
-| 存储优化目标 | **尝试 ≤30 MiB** sysupgrade 包，**不是**闪存安全上限，也不是已达成结果 |
+| 存储优化目标 | ****Factory UBI ≤28 MiB 硬性限制**** sysupgrade 包，**超过则构建失败；仍须检查设备实际分区和坏块 |
 | 默认 LAN IP / 凭据 | 以构建时上游默认值为准；**不预置通用密码** |
 | NSS / Wi-Fi | 保留上游设备支持；本项目不额外宣称第三方 NSS 硬件加速性能 |
 
@@ -52,7 +52,7 @@
 | :-- | :-- | :-- | :-- | :-- |
 | **AX6 Tiny · stock** | [`redmi_ax6-stock`](configs/redmi-ax6-stock.config) | [![Build](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions/workflows/build.yml/badge.svg)](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions/workflows/build.yml) | [Actions Artifacts](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions) · [Releases](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/releases) | **实验性，待首编与实机验证** |
 
-自动构建产物包含镜像、`*.manifest`、`build.config`、`BUILD-REPORT.md` 和 `SHA256SUMS`。每次成功构建的文件在 Actions → 对应 run → **Artifacts** 下载（默认保留 14 天）。只有在手动构建时选择 `publish_prerelease=true` 才会创建标记为 **Pre-release** 的测试发布；定时构建不会自动发布可刷写固件。
+自动构建产物包含镜像、`*.manifest`、`build.config`、`BUILD-REPORT.md` 和 `SHA256SUMS`。每次成功构建的三个独立 Artifact 在 Actions → 对应 run → **Artifacts** 下载（默认保留 14 天）。固件分三个独立 Artifact：**Sysupgrade、Factory UBI、元数据报告**，避免把整个合集 ZIP 大小误认为单个可刷入镜像。若 Factory UBI 大于 28 MiB，构建直接失败，不上传任何固件。只有在手动构建时选择 `publish_prerelease=true` 才会创建标记为 **Pre-release** 的测试发布；定时构建不会自动发布可刷写固件。
 
 ## 集成组件
 
@@ -136,7 +136,7 @@ A：ImmortalWrt 25.12 的 HomeProxy 仍写了 `+sing-box` 依赖；脚本将其�
 A：不同内核和数据路径并不自动兼容。先稳定实现网络和无线，再独立比较 Flow Offload / NSS 的性能与兼容性。
 
 **Q：30 MiB 是硬限制吗？**  
-A：**不是。** 它只是优化目标；实际能否刷入取决于 UBI、分区布局、镜像格式和设备状态。即使镜像小于 30 MiB，也不等于安全可刷。
+A：**原来的 30 MiB 优化目标已提升为硬性检查：Factory UBI 必须 ≤28 MiB**。AX6 原厂 rootfs/rootfs_1 典型为 35.75 MiB，但 UBI 必须预留坏块等开销。28 MiB 是保守构建准入阈值，不是刷入保证。
 
 ## 参考、致谢与归属
 

@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 bash -n "$repo"/scripts/*.sh "$repo/tests/smoke.sh"
+python3 -m py_compile "$repo/scripts/check-stock-image.py"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/scripts" "$work/feeds/luci/applications/luci-app-homeproxy"
@@ -33,4 +34,37 @@ sed -i '/^CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6-stock=y$/d' "$work/.
 if (cd "$work" && bash "$repo/scripts/check-config.sh" >/dev/null 2>&1); then
   echo 'ERROR: missing stock target selector incorrectly accepted' >&2; exit 1
 fi
+# Construct a minimal synthetic AX6 factory/sysupgrade fixture to test the hard gate.
+python3 - "$repo" "$work" <<'PY'
+import io
+import pathlib
+import struct
+import subprocess
+import sys
+import tarfile
+
+repo, work = map(pathlib.Path, sys.argv[1:])
+ubi = work / 'redmi_ax6-stock-squashfs-factory.ubi'
+sysup = work / 'redmi_ax6-stock-squashfs-sysupgrade.bin'
+peb = 128 * 1024
+with ubi.open('wb') as stream:
+    for vid in (0, 1):
+        block = bytearray(peb)
+        block[:4] = b'UBI#'
+        struct.pack_into('>I', block, 16, 2048)
+        block[2048:2052] = b'UBI!'
+        struct.pack_into('>I', block, 2056, vid)
+        stream.write(block)
+with tarfile.open(sysup, 'w') as archive:
+    for name in ('CONTROL', 'kernel', 'root'):
+        data = b'1'
+        entry = tarfile.TarInfo('sysupgrade-redmi_ax6-stock/' + name)
+        entry.size = len(data)
+        archive.addfile(entry, io.BytesIO(data))
+checker = [sys.executable, str(repo / 'scripts/check-stock-image.py'), str(sysup), str(ubi)]
+assert subprocess.run(checker, capture_output=True).returncode == 0
+with ubi.open('r+b') as stream:
+    stream.truncate(29 * 1024 * 1024)
+assert subprocess.run(checker, capture_output=True).returncode != 0
+PY
 printf 'SMOKE TESTS PASSED\n'
