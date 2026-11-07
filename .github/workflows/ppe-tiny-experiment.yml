@@ -53,14 +53,14 @@ jobs:
           cp ../configs/redmi-ax6-ppe-tiny-plus-stock.config .config
           make defconfig
           bash ../scripts/check-ppe-tiny-config.sh .config
-          bash ../scripts/audit-datapath.sh .config ../ppe-tiny-plus-report/DATAPATH-AUDIT.md
-          cp .config ../ppe-tiny-plus-report/build.config
+          bash ../scripts/audit-datapath.sh .config ../ppe-tiny-report/DATAPATH-AUDIT.md
+          cp .config ../ppe-tiny-report/build.config
       - name: Upload source feasibility metadata
         if: always()
         uses: actions/upload-artifact@v7.0.2
         with:
           name: ppe-tiny-source-audit-${{ github.run_number }}
-          path: ppe-tiny-plus-report/
+          path: ppe-tiny-report/
           if-no-files-found: warn
           retention-days: 14
 
@@ -97,8 +97,8 @@ jobs:
             echo "ERROR: upstream PPE branch changed since preflight; rerun." >&2
             exit 1
           }
-          mkdir -p ppe-tiny-plus-report
-          echo "$actual" > ppe-tiny-plus-report/PPE-SOURCE-SHA.txt
+          mkdir -p ppe-tiny-report
+          echo "$actual" > ppe-tiny-report/PPE-SOURCE-SHA.txt
       - name: Prepare PPE stock layout, NSS feed, LuCI overlay and tiny core
         working-directory: ppe-source
         run: bash ../scripts/prepare-ppe-tiny.sh
@@ -108,10 +108,10 @@ jobs:
           cp ../configs/redmi-ax6-ppe-tiny-plus-stock.config .config
           make defconfig
           bash ../scripts/check-ppe-tiny-config.sh .config
-          bash ../scripts/audit-datapath.sh .config ../ppe-tiny-plus-report/DATAPATH-AUDIT.md
-          cp .config ../ppe-tiny-plus-report/build.config
+          bash ../scripts/audit-datapath.sh .config ../ppe-tiny-report/DATAPATH-AUDIT.md
+          cp .config ../ppe-tiny-report/build.config
           for feed in feeds/luci feeds/packages feeds/nss; do
-            echo "$feed $(git -C "$feed" rev-parse HEAD)" >> ../ppe-tiny-plus-report/FEED-SHAS.txt
+            echo "$feed $(git -C "$feed" rev-parse HEAD)" >> ../ppe-tiny-report/FEED-SHAS.txt
           done
       - name: Download all sources
         working-directory: ppe-source
@@ -131,25 +131,25 @@ jobs:
             echo 'ERROR: expected exactly one AX6 stock UBI and sysupgrade BIN' >&2
             exit 1
           }
-          bash ../scripts/audit-ppe-tiny-manifest.sh "$target" ../ppe-tiny-plus-report
-          python3 ../scripts/check-stock-image.py "${sysupgrade[0]}" "${factory[0]}" > ../ppe-tiny-plus-report/IMAGE-AUDIT.md
-          mkdir -p ../ppe-tiny-plus-dist
-          cp "${factory[0]}" "${sysupgrade[0]}" ../ppe-tiny-plus-dist/
-          (cd ../ppe-tiny-plus-dist && sha256sum ./* > ../ppe-tiny-plus-report/SHA256SUMS)
-          printf 'EXPERIMENTAL ONLY - PPE, NSS Wi-Fi, stock flash/boot, MAC and TProxy not hardware tested.\n' > ../ppe-tiny-plus-report/UNVERIFIED-READ-ME-FIRST.txt
-          cat ../ppe-tiny-plus-report/IMAGE-AUDIT.md
+          bash ../scripts/audit-ppe-tiny-manifest.sh "$target" ../ppe-tiny-report
+          python3 ../scripts/check-stock-image.py "${sysupgrade[0]}" "${factory[0]}" > ../ppe-tiny-report/IMAGE-AUDIT.md
+          mkdir -p ../ppe-tiny-dist
+          cp "${factory[0]}" "${sysupgrade[0]}" ../ppe-tiny-dist/
+          (cd ../ppe-tiny-dist && sha256sum ./* > ../ppe-tiny-report/SHA256SUMS)
+          printf 'EXPERIMENTAL ONLY - PPE, NSS Wi-Fi, stock flash/boot, MAC and TProxy not hardware tested.\n' > ../ppe-tiny-report/UNVERIFIED-READ-ME-FIRST.txt
+          cat ../ppe-tiny-report/IMAGE-AUDIT.md
       - name: Upload Factory UBI (experimental and NOT flashing certified)
         uses: actions/upload-artifact@v7.0.2
         with:
           name: ax6-ppe-tiny-EXPERIMENTAL-factory-${{ github.run_number }}
-          path: ppe-tiny-plus-dist/*-factory.ubi
+          path: ppe-tiny-dist/*-factory.ubi
           if-no-files-found: error
           retention-days: 14
       - name: Upload sysupgrade BIN (experimental and NOT flashing certified)
         uses: actions/upload-artifact@v7.0.2
         with:
           name: ax6-ppe-tiny-EXPERIMENTAL-sysupgrade-${{ github.run_number }}
-          path: ppe-tiny-plus-dist/*-sysupgrade.bin
+          path: ppe-tiny-dist/*-sysupgrade.bin
           if-no-files-found: error
           retention-days: 14
       - name: Upload complete audit metadata
@@ -157,6 +157,6 @@ jobs:
         uses: actions/upload-artifact@v7.0.2
         with:
           name: ax6-ppe-tiny-metadata-${{ github.run_number }}
-          path: ppe-tiny-plus-report/
+          path: ppe-tiny-report/
           if-no-files-found: warn
           retention-days: 14
