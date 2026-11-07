@@ -53,8 +53,10 @@ jobs:
   full-build:
     name: PPE-only feasibility compile (metadata only)
     needs: source-guard
-    # No automatic compilation on PR, no automatic artifact publication.
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_compile }}
+    # Explicit opt-in only: manual dispatch OR same-repo PR title marker.
+    # PR title marker can be removed once the one-off run is queued.
+    # No firmware images are uploaded or published under either trigger.
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_compile) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.title, '[PPE-FULL-COMPILE]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
