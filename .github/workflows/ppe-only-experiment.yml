@@ -43,6 +43,11 @@ jobs:
         working-directory: ppe-source
         run: |
           bash ../scripts/prepare-ppe-experiment.sh
+          test -f target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
+          grep -Fq 'compatible = "redmi,ax6-stock"' target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
+          grep -Fq 'compatible = "qcom,smem-part"' target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
+          grep -Fq 'DEVICE_DTS := ipq8071-ax6-stock' target/linux/qualcommax/image/ipq807x.mk
+          grep -Fq 'redmi,ax6-stock)' target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh
           cp ../configs/redmi-ax6-ppe-only-stock.config .config
           bash ../scripts/check-ppe-config.sh .config
           grep -Fqx 'CONFIG_QCOM_EDMA=y' target/linux/qualcommax/ipq807x/config-default
@@ -95,6 +100,10 @@ jobs:
         working-directory: ppe-source
         run: |
           bash ../scripts/prepare-ppe-experiment.sh
+          sha256sum target/linux/qualcommax/dts/ipq8071-ax6-stock.dts \
+            target/linux/qualcommax/image/ipq807x.mk \
+            target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh \
+            > ../ppe-report/STOCK-PORT-SHA256SUMS
           cp feeds.conf.default feeds.conf
           ./scripts/feeds update -a
           ./scripts/feeds install -a
@@ -112,7 +121,7 @@ jobs:
         run: make download -j4
       - name: Compile PPE-only feasibility image
         working-directory: ppe-source
-        run: make -j2 V=sc
+        run: make -j2 V=s
       - name: Audit images (NEVER publish them)
         working-directory: ppe-source
         shell: bash
