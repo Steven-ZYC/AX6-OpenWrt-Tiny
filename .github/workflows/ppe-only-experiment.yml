@@ -25,6 +25,8 @@ concurrency:
 jobs:
   source-guard:
     name: PPE upstream source + AX6 stock guard
+    outputs:
+      upstream_sha: ${{ steps.version.outputs.sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -34,6 +36,9 @@ jobs:
           git clone --depth 1 --single-branch --branch ppe-nss \
             https://github.com/JuliusBairaktaris/openwrt-ppe-nss.git ppe-source
           git -C ppe-source log -1 --format='%H %ci %s'
+      - name: Pin upstream source revision
+        id: version
+        run: echo "sha=$(git -C ppe-source rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Verify AX6 stock port and PPE-only selectors
         working-directory: ppe-source
         run: |
@@ -76,7 +81,14 @@ jobs:
           git clone --depth 1 --single-branch --branch ppe-nss \
             https://github.com/JuliusBairaktaris/openwrt-ppe-nss.git ppe-source
           mkdir -p ppe-report
-          git -C ppe-source rev-parse HEAD > ppe-report/PPE-SOURCE-SHA.txt
+          # The preflight and compile must operate on the same upstream revision.
+          expected='${{ needs.source-guard.outputs.upstream_sha }}'
+          actual="$(git -C ppe-source rev-parse HEAD)"
+          [[ -n "$expected" && "$actual" == "$expected" ]] || {
+            echo "ERROR: upstream PPE branch moved after preflight ($expected -> $actual). Re-run." >&2
+            exit 1
+          }
+          echo "$actual" > ppe-report/PPE-SOURCE-SHA.txt
       - name: Prepare guarded stock profile and feeds
         working-directory: ppe-source
         run: |
