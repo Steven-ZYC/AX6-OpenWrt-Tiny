@@ -19,4 +19,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Validate shell scripts and fail-closed guards
-        run: bash tests/smoke.sh
+        run: |
+          bash tests/smoke.sh
+          bash tests/variant-smoke.sh
