@@ -3,7 +3,7 @@
 # AX6-OpenWrt-Tiny
 
 **为 Redmi AX6（IPQ8071A）打造的轻量、可复现、自动构建固件**  
-**Argon · HomeProxy · sing-box-tiny · GitHub Actions**
+**Tiny（纯路由加速） · Tiny Plus（增加 HomeProxy / sing-box-tiny） · 原厂 NAND 布局**
 
 [![Build AX6](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions/workflows/build.yml/badge.svg)](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/build_scripts-MIT-blue.svg)](LICENSE)
@@ -15,7 +15,26 @@
 </div>
 
 > [!WARNING]
-> **实验性项目：尚未验证云编译成功及 Redmi AX6 真机刷入、Wi-Fi / NAT / 代理功能。** 首次成功构建 ≠ 可以安全刷机。此仓库目前面向 **Redmi AX6 原厂分区（stock layout）**，不是 AX6S、AX6000，也不是扩容 / 自定义 U-Boot 布局。务必先读 [刷机安全说明](docs/FLASHING.md)。
+> **实验性项目：PPE + Tiny Plus 已完成云编译；尚未验证 Redmi AX6 真机刷入、Wi-Fi / NAT / 代理功能。** 首次成功构建 ≠ 可以安全刷机。此仓库目前面向 **Redmi AX6 原厂分区（stock layout）**，不是 AX6S、AX6000，也不是扩容 / 自定义 U-Boot 布局。务必先读 [刷机安全说明](docs/FLASHING.md)。
+
+## PPE 双版本固件（新路线）
+
+**每次 Release 只使用一个版本号，同时提供 Tiny 和 Tiny Plus 两个版本，各有 Factory UBI 与 Sysupgrade BIN，共四个镜像。**
+
+| 项目 | Tiny | Tiny Plus |
+| :-- | :-- | :-- |
+| 高通 PPE / EDMA、NSS Wi-Fi | ✅ | ✅ |
+| LuCI / HTTPS / Argon / 简体中文 | ✅ | ✅ |
+| Firewall4 / nftables | ✅ | ✅ |
+| HomeProxy / sing-box-tiny / VLESS Reality / Shadowsocks | ❌ 不包含代理包 | ✅ 打包代理功能 |
+| nftables TProxy | ❌ 不包含 | ✅ |
+| 原厂分区 28 MiB Factory UBI 硬门槛 | ✅ | ✅ |
+
+[**双版本完整说明**](docs/RELEASE-VARIANTS.md) · [**双版本 CI / Pre-release 工作流**](.github/workflows/release-variants.yml) · [**查看 Releases**](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/releases)
+
+> **安全提醒：** 已通过的 GitHub 构建并不等于真机启动或刷写安全认证。首次双版本发布仅标记为 **Pre-release**，固件必须针对 Redmi AX6 **stock NAND** 分区核实，不能与 expanded layout 混用。下文 ImmortalWrt 25.12 描述为独立的旧版编译路线；本双版本基于 Linux 6.18 的 PPE 实验源。
+
+---
 
 ## 项目介绍
 
