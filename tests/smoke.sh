@@ -67,4 +67,18 @@ with ubi.open('r+b') as stream:
     stream.truncate(29 * 1024 * 1024)
 assert subprocess.run(checker, capture_output=True).returncode != 0
 PY
+# Source-level datapath audit: legacy baseline is reported, never mislabelled as PPE.
+mkdir -p "$work/target/linux/qualcommax/ipq807x" "$work/target/linux/qualcommax/image"
+printf 'KERNEL_PATCHVER:=6.12\nDEFAULT_PACKAGES += kmod-qca-nss-dp\n' > "$work/target/linux/qualcommax/Makefile"
+printf 'CONFIG_NET_DSA=y\n' > "$work/target/linux/qualcommax/ipq807x/config-default"
+printf 'define Device/redmi_ax6-stock\nendef\n' > "$work/target/linux/qualcommax/image/ipq807x.mk"
+cp "$repo/configs/redmi-ax6-stock.config" "$work/.config"
+(cd "$work" && bash "$repo/scripts/audit-datapath.sh" .config datapath-audit.md)
+grep -Fq 'Legacy qca-nss-dp' "$work/datapath-audit.md"
+grep -Fq 'NOT AVAILABLE via the new upstream' "$work/datapath-audit.md"
+# PPE+NSS source without an explicit stock definition must be rejected.
+printf 'define Device/redmi_ax6\nendef\n' > "$work/target/linux/qualcommax/image/ipq807x.mk"
+if (cd "$work" && bash "$repo/scripts/audit-datapath.sh" .config datapath-audit.md >/dev/null 2>&1); then
+  echo 'ERROR: missing stock definition incorrectly accepted by datapath audit' >&2; exit 1
+fi
 printf 'SMOKE TESTS PASSED\n'
