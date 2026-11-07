@@ -48,6 +48,13 @@ jobs:
           grep -Fq 'compatible = "qcom,smem-part"' target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
           grep -Fq 'DEVICE_DTS := ipq8071-ax6-stock' target/linux/qualcommax/image/ipq807x.mk
           grep -Fq 'redmi,ax6-stock)' target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh
+          for p in \
+            target/linux/qualcommax/ipq807x/base-files/etc/board.d/02_network \
+            target/linux/qualcommax/ipq807x/base-files/etc/board.d/01_leds \
+            target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/firmware/11-ath11k-caldata \
+            package/boot/uboot-tools/uboot-envtools/files/qualcommax_ipq807x; do
+            grep -Fq 'redmi,ax6-stock' "$p"
+          done
           cp ../configs/redmi-ax6-ppe-only-stock.config .config
           bash ../scripts/check-ppe-config.sh .config
           grep -Fqx 'CONFIG_QCOM_EDMA=y' target/linux/qualcommax/ipq807x/config-default
