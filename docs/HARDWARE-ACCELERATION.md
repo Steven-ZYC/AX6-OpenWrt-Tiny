@@ -78,3 +78,21 @@
 5. 只上传 `ppe-report/` 下的配置、上游源码 SHA、包清单和审计结果。**不会上传 `.ubi` 或 `.bin`**，也不会执行发布/刷机步骤。
 
 安全说明：成功编译及 UBI 检查**不能证明** stock Profile 的设备树/bootloader/刷写流程与真实设备匹配。后续仍须审核真实分区布局和恢复能力，在实际测试硬件上完成端口、无线、PPE offload 流表与代理绕过风险测试，再开始整合用户功能。
+
+## 六、首次 PPE Full Compile 失败记录与修正（2026-11-07）
+
+完整编译 Run [#42370194535](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/actions/runs/42370194535) 在 `target/linux/install` 失败：
+
+```text
+cc1: fatal error: ../dts/ipq8071-ax6-stock.dts: No such file or directory
+```
+
+原因是第一版实验脚本只移植 `redmi_ax6-stock` 的 image 定义，却**没有移植专用的 stock DTS 以及配套板级逻辑**。不能仅指定与扩容固件相同的 `ipq8071-ax6.dts`：该设备树使用扩容布局的 fixed-partitions，而原厂双分区需要 SMEM 布局及不同的启动参数。这不只是编译文件名问题。
+
+修订版 `scripts/prepare-ppe-experiment.sh` 现在 fail-closed：
+- 审核 PPE EDMA、SMEM MTD 分区解析器、上游 DSA 端口标签与原设备树结构，遇上游变化拒绝构建。
+- 从 ImmortalWrt 25.12 的 stock DTS 逻辑移植 `redmi,ax6-stock`、SMEM 分区和 `root=/dev/ubiblock0_1`，对 Linux 6.18 的 DSA 交换机端口适配别名与 NVMEM 引用，并显式指定 `DEVICE_DTS := ipq8071-ax6-stock`。
+- 适配 U-Boot envtools、LAN/WAN、LED、Wi-Fi 校准、bootcount 与 stock sysupgrade 分支。升级时无法识别 bootloader 槽位时拒绝执行，而非猜测。
+- CI 自动校验生成的 DTS/升级脚本并生成 SHA256 指纹；Smoke Test 新增模拟 stock 设备树与缺失场景的回归用例。
+
+**重要限制：** 以上只解决源码与构建问题，没有真机验证 DSA 端口 MAC、U-Boot DTS fixup、SMEM 分区、原厂两个 rootfs 槽位、NSS 与 PPE 是否实际加速。**镜像仍不能用于刷机**；Full Compile 即使通过也不发布镜像文件。
