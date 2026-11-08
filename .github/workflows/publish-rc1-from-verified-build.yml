@@ -44,8 +44,18 @@ jobs:
             test -s "$src/AX6-$variant.manifest"
             (cd "$src" && sha256sum -c "SHA256SUMS-$variant")
             bash scripts/verify-ax6-variant.sh manifest "$variant" "$src/AX6-$variant.manifest"
+            # The stock-image validator deliberately requires the original
+            # redmi_ax6-stock filename; Action artifacts were renamed for
+            # human-readable variants. Restore only temporary audit names.
+            audit_tmp="$(mktemp -d)"
+            cp "$src/AX6-$variant-sysupgrade.bin" \
+              "$audit_tmp/openwrt-qualcommax-ipq807x-redmi_ax6-stock-squashfs-sysupgrade.bin"
+            cp "$src/AX6-$variant-factory.ubi" \
+              "$audit_tmp/openwrt-qualcommax-ipq807x-redmi_ax6-stock-squashfs-factory.ubi"
             python3 scripts/check-stock-image.py \
-              "$src/AX6-$variant-sysupgrade.bin" "$src/AX6-$variant-factory.ubi"
+              "$audit_tmp/openwrt-qualcommax-ipq807x-redmi_ax6-stock-squashfs-sysupgrade.bin" \
+              "$audit_tmp/openwrt-qualcommax-ipq807x-redmi_ax6-stock-squashfs-factory.ubi"
+            rm -rf "$audit_tmp"
             cp "$src/AX6-$variant-factory.ubi" "release/AX6-$variant-$TAG-factory.ubi"
             cp "$src/AX6-$variant-sysupgrade.bin" "release/AX6-$variant-$TAG-sysupgrade.bin"
             cp "$src/AX6-$variant.manifest" "release/AX6-$variant-$TAG.manifest"
