@@ -1,0 +1,103 @@
+name: Publish AX6 dual-variant RC1 from verified Actions artifacts
+
+# One-time bootstrap from run 42413895063. No recompile necessary.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-rc1-from-verified-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prerelease-rc1:
+    name: Publish four images as v0.1.0-rc1 Pre-release
+    if: ${{ github.event.pull_request.number == 3 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feat/tiny-plus-dual-release' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    env:
+      TAG: v0.1.0-rc1
+      SOURCE_RUN: '42413895063'
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Fetch both successful AX6 variant artifacts
+        run: |
+          set -Eeuo pipefail
+          gh run download "$SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "ax6-release-*-$SOURCE_RUN" \
+            --dir bundles
+          find bundles -maxdepth 2 -type f -printf '%P\n' | sort
+
+      - name: Validate four raw images, stock UBI limit, and shared source identity
+        run: |
+          set -Eeuo pipefail
+          mkdir -p release
+          for variant in tiny tiny-plus; do
+            src="bundles/ax6-release-$variant-$SOURCE_RUN"
+            test -s "$src/AX6-$variant-factory.ubi"
+            test -s "$src/AX6-$variant-sysupgrade.bin"
+            test -s "$src/AX6-$variant.manifest"
+            (cd "$src" && sha256sum -c "SHA256SUMS-$variant")
+            bash scripts/verify-ax6-variant.sh manifest "$variant" "$src/AX6-$variant.manifest"
+            python3 scripts/check-stock-image.py \
+              "$src/AX6-$variant-sysupgrade.bin" "$src/AX6-$variant-factory.ubi"
+            cp "$src/AX6-$variant-factory.ubi" "release/AX6-$variant-$TAG-factory.ubi"
+            cp "$src/AX6-$variant-sysupgrade.bin" "release/AX6-$variant-$TAG-sysupgrade.bin"
+            cp "$src/AX6-$variant.manifest" "release/AX6-$variant-$TAG.manifest"
+            cp "$src/AX6-$variant-IMAGE-AUDIT.md" "release/AX6-$variant-$TAG-IMAGE-AUDIT.md"
+          done
+          a="bundles/ax6-release-tiny-$SOURCE_RUN"
+          b="bundles/ax6-release-tiny-plus-$SOURCE_RUN"
+          for provenance in PPE-SOURCE-SHA.txt FEED-SHAS.txt IMMORTALWRT-LUCI-SHA.txt; do
+            cmp "$a/$provenance" "$b/$provenance"
+            cp "$a/$provenance" "release/$provenance"
+          done
+          grep -Fqx '7d65a3ed836a0071e2f19a5944682f457e02efe0' release/PPE-SOURCE-SHA.txt
+          test "$(find release -maxdepth 1 -name '*.ubi' | wc -l)" -eq 2
+          test "$(find release -maxdepth 1 -name '*.bin' | wc -l)" -eq 2
+          (cd release && sha256sum ./*.ubi ./*.bin > SHA256SUMS)
+          cat > release/RELEASE-NOTES.md <<EOF
+          ## Redmi AX6 Tiny / Tiny Plus $TAG — EXPERIMENTAL
+
+          **WARNING: THIS RELEASE HAS NOT BEEN TESTED ON A REAL ROUTER.**
+          DO NOT FLASH until NAND partitions, UBI bad-block layout,
+          active boot slot, board Wi-Fi calibration and a recovery route
+          have been verified.
+
+          - **Tiny:** PPE / EDMA, NSS Wi-Fi, firewall4 / nftables, LuCI,
+            HTTPS, Argon and Simplified Chinese. No proxy packages.
+          - **Tiny Plus:** Same hardware base, plus HomeProxy,
+            sing-box-tiny, TProxy and Simplified Chinese.
+          - Each has a separate factory.ubi and sysupgrade.bin;
+            they are different flashing formats, not interchangeable.
+          - Stock Redmi AX6 NAND partition profile ONLY. Not AX6S,
+            AX6000, enlarged flash or alternate bootloader layouts.
+          - All four images passed a conservative 28 MiB factory gate,
+            UBI/sysupgrade structure tests and package manifest checks.
+          - Firmware sources: PPE commit 7d65a3ed836a0071e2f19a5944682f457e02efe0.
+          - Build provenance: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN
+          - Real PPE/NSS flow offload, Wi-Fi, boot and proxy behavior
+            remain UNVERIFIED. This GitHub Release is a Pre-release.
+          EOF
+
+      - name: Create official GitHub Pre-release
+        env:
+          RELEASE_TARGET: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -Eeuo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "ERROR: tag $TAG already released; refusing to overwrite it." >&2
+            exit 1
+          fi
+          gh release create "$TAG" release/*.ubi release/*.bin \
+            release/*.manifest release/*IMAGE-AUDIT.md \
+            release/SHA256SUMS release/*SHA.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$RELEASE_TARGET" \
+            --prerelease --latest=false \
+            --title "AX6 Tiny & Tiny Plus $TAG — EXPERIMENTAL / NOT FLASH VERIFIED" \
+            --notes-file release/RELEASE-NOTES.md
