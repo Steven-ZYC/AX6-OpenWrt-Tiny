@@ -25,14 +25,25 @@ FEEDS
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
-# Import JUST the two requested LuCI applications rather than mixing complete
-# ImmortalWrt-25.12 feeds into the OpenWrt-6.18 build toolchain.
+# Fail early if the currently fetched OpenWrt LuCI feed drops the expected
+# file-management web UI or standard Backup / Flash Firmware component.
+test -f feeds/luci/applications/luci-app-filemanager/Makefile || {
+  echo 'ERROR: OpenWrt LuCI File Manager package missing' >&2; exit 1;
+}
+test -f feeds/luci/modules/luci-mod-system/Makefile || {
+  echo 'ERROR: LuCI core system / Backup / Flash Firmware module missing' >&2; exit 1;
+}
+
+# Import only the ImmortalWrt LuCI packages missing from OpenWrt's own
+# 6.18 feeds. HomeProxy and Argon are already included; Scheduled Reboot is
+# imported separately for Plus-only optional scheduled restarts.
+# File Manager and Backup / Flash Firmware are from upstream OpenWrt LuCI.
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 git clone --depth 1 --single-branch --branch openwrt-25.12 https://github.com/immortalwrt/luci.git "$work/luci"
 git -C "$work/luci" rev-parse HEAD > ../ppe-tiny-report/IMMORTALWRT-LUCI-SHA.txt
 mkdir -p package/ax6-luci
-for entry in applications/luci-app-homeproxy themes/luci-theme-argon; do
+for entry in applications/luci-app-homeproxy themes/luci-theme-argon applications/luci-app-autoreboot; do
   [[ -f "$work/luci/$entry/Makefile" ]] || { echo "ERROR: missing ImmortalWrt LuCI package: $entry" >&2; exit 1; }
   cp -a "$work/luci/$entry" package/ax6-luci/
 done
@@ -41,7 +52,7 @@ python3 - <<'PY'
 from pathlib import Path
 
 custom = Path('package/ax6-luci')
-for name in ('luci-app-homeproxy', 'luci-theme-argon'):
+for name in ('luci-app-homeproxy', 'luci-theme-argon', 'luci-app-autoreboot'):
     p = custom / name / 'Makefile'
     src = p.read_text()
     old = 'include ../../luci.mk'
