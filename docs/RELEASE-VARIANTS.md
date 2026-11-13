@@ -17,11 +17,27 @@ Do not confuse with AX6S, AX6000, expanded NAND layouts or alternate U-Boot part
 | sing-box-tiny (uTLS + Clash API, no QUIC/gVisor) | **No** | **Yes** |
 | nftables TProxy kernel module | **No** | **Yes** |
 | LuCI browser terminal (luci-app-ttyd + ttyd) | **No** | **Yes** |
+| LuCI File Manager (file upload/download) | **No** | **Yes** |
+| Scheduled Tasks / Cron web page | Already provided by LuCI | Already provided by LuCI |
+| Backup / Restore / Flash web page | Already provided by LuCI | Already provided by LuCI |
 | VLESS Reality / Shadowsocks | **No proxy client** | **Target features (runtime verification needed)** |
 
 Tiny and Tiny Plus share the SAME source revision and foundational network
 packages. Only the Plus variant may install proxy-related packages. The
 build checks the **actual installed manifest**, not just the requested config.
+
+## RC2 extra LuCI utilities
+
+Only Plus requests `luci-app-filemanager` from upstream LuCI.
+Both builds already have LuCI's Scheduled Tasks (cron UI) and
+Backup / Flash Firmware interfaces. Scheduled reboot is **not enabled
+by default**: users may create a cron entry in the UI.
+
+**Critical stock AX6 safety constraint:** the stock-profile upgrade hook
+chooses the partition based on `flag_boot_rootfs`; do not claim the
+stock LuCI upgrade UI safely flashes the *inactive* slot. Configuration
+backups also are not NAND/ART/U-Boot snapshots. Keep the flashing
+workflow experimental until explicitly hardware validated.
 
 ## RC2 first-boot defaults (NOT in published RC1)
 
