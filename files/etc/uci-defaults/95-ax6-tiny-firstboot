@@ -42,7 +42,13 @@ fi
 # Respect an already-customized LAN IP when restoring existing settings.
 current_lan="$(uci -q get network.lan.ipaddr 2>/dev/null || true)"
 case "$current_lan" in
-    192.168.1.1|'') uci set network.lan.ipaddr='192.168.123.1' ;;
+    192.168.1.1|192.168.1.1/24|'')
+        # Current upstream config_generate writes a *list* with CIDR
+        # (192.168.1.1/24); replacing it with a plain option risks
+        # diverging from the expected netifd address representation.
+        uci -q delete network.lan.ipaddr
+        uci add_list network.lan.ipaddr='192.168.123.1/24'
+        ;;
 esac
 
 # Campus/dorm compatibility: intentionally disable rebind protection.
