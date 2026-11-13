@@ -19,7 +19,7 @@ for pkg in "${base[@]}"; do
   echo "$pkg - 1.0" >> "$temp/tiny.manifest"
 done
 cp "$temp/tiny.manifest" "$temp/plus.manifest"
-for pkg in luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box-tiny kmod-nft-tproxy luci-app-ttyd ttyd; do
+for pkg in luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box-tiny kmod-nft-tproxy luci-app-ttyd ttyd luci-app-filemanager; do
   echo "$pkg - 1.0" >> "$temp/plus.manifest"
 done
 bash "$repo/scripts/verify-ax6-variant.sh" manifest tiny "$temp/tiny.manifest"
