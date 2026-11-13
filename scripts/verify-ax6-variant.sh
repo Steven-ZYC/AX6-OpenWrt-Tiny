@@ -45,9 +45,10 @@ for pkg in sing-box xray-core luci-app-ssr-plus kmod-qca-nss-drv-64 \
 done
 
 # The interactive terminal is restricted to Plus, but not a proxy package.
-terminal_packages=(luci-app-ttyd ttyd)
+# Plus-only interactive utilities; no extra image-updater is bundled.
+terminal_packages=(luci-app-ttyd ttyd luci-app-filemanager luci-app-autoreboot)
 if [[ "$variant" == tiny-plus ]]; then
-  for pkg in "${terminal_packages[@]}"; do
+  for pkg in "${terminal_packages[@]}" luci-mod-system; do
     if ! has "$pkg"; then echo "ERROR: Tiny Plus requires $pkg" >&2; exit 1; fi
   done
 else
