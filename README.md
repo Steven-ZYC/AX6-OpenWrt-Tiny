@@ -55,6 +55,13 @@ uci commit dhcp
 
 初次设置或恢复出厂设置后如无法连接，请先以有线 LAN 为准，检查设备驱动是否识别到两个无线频段；目前新默认值仍须在 Tiny / Tiny Plus 真机复测。LuCI Terminal 不应设置 `/bin/login -f root` 或向 WAN 开放 ttyd 端口；它的独立端口可能绕过 LuCI 本身的登录界面。
 
+### 文件上传、定时重启及备份升级（RC2）
+
+- **仅 Tiny Plus** 新增官方 `luci-app-filemanager`，在 LuCI 网页中管理文件并上传下载。请不要直接上传覆盖 U-Boot、MTD 等分区设备；也不要把文件管理器开放给 WAN。
+- **两个版本都已有**「系统 → 计划任务」（LuCI Scheduled Tasks）。可自行加入定时重启 Cron，例如 `0 5 * * 0 /sbin/reboot` 表示每周日**设备当地时间** 05:00 重启。**默认不启用定时重启**，避免在升级、网络故障或定时任务中断时意外重启。确保时区和 NTP 正确。
+- **两个版本都已有**「系统 → 备份/升级」（Backup / Flash Firmware）。可以下载、恢复常规配置备份。备份不会自动包含完整 NAND、ART/校准数据、U-Boot 或所有安装插件。
+- **特别注意原厂双槽**：AX6 Tiny 的 stock 布局升级脚本选择的分区取决于 `flag_boot_rootfs`，**不能假定 LuCI 的固件升级会写入非活动槽**；在专门验证之前，不要使用「强制升级」或通过该页面上传 `factory.ubi`。
+
 ## PPE 双版本固件（新路线）
 
 **每次 Release 只使用一个版本号，同时提供 Tiny 和 Tiny Plus 两个版本，各有 Factory UBI 与 Sysupgrade BIN，共四个镜像。**
@@ -67,6 +74,9 @@ uci commit dhcp
 | HomeProxy / sing-box-tiny / VLESS Reality / Shadowsocks | ❌ 不包含代理包 | ✅ 打包代理功能 |
 | nftables TProxy | ❌ 不包含 | ✅ |
 | LuCI Terminal（ttyd） | ❌ 不包含 | ✅ |
+| LuCI 文件管理 / 上传下载 | ❌ 不包含 | ✅ `luci-app-filemanager` |
+| 定时重启 | ✅ 内置「系统 → 计划任务」，按需添加 Cron | ✅ 内置「系统 → 计划任务」，按需添加 Cron |
+| 配置备份 / 固件升级菜单 | ✅ LuCI 内置 | ✅ LuCI 内置 |
 | 原厂分区 28 MiB Factory UBI 硬门槛 | ✅ | ✅ |
 
 [**双版本完整说明**](docs/RELEASE-VARIANTS.md) · [**双版本 CI / Pre-release 工作流**](.github/workflows/release-variants.yml) · [**查看 Releases**](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/releases)
