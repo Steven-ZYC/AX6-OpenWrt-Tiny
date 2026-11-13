@@ -17,6 +17,9 @@ Do not confuse with AX6S, AX6000, expanded NAND layouts or alternate U-Boot part
 | sing-box-tiny (uTLS + Clash API, no QUIC/gVisor) | **No** | **Yes** |
 | nftables TProxy kernel module | **No** | **Yes** |
 | LuCI browser terminal (luci-app-ttyd + ttyd) | **No** | **Yes** |
+| LuCI File Manager / uploads (luci-app-filemanager) | **No** | **Yes** |
+| LuCI Scheduled Reboot (luci-app-autoreboot; disabled by default) | **No** | **Yes** |
+| Standard LuCI config backup / restore / firmware upload | **Yes** | **Yes** |
 | VLESS Reality / Shadowsocks | **No proxy client** | **Target features (runtime verification needed)** |
 
 Tiny and Tiny Plus share the SAME source revision and foundational network
@@ -49,6 +52,22 @@ This initial-default script is a build overlay, not an auto-migration tool;
 preserved user configurations and existing radio interfaces must be validated
 after upgrade. Changing this branch does **not** modify the already published
 `v0.1.0-rc1` binaries. The stock-layout and 28 MiB size audits remain mandatory.
+
+**Backup / Flash Firmware** is provided by `luci-mod-system`, which both
+variants already pull in via `luci`. Plus explicitly pins it as a required
+package and checks the installed manifest. File Manager is sourced from the
+current OpenWrt LuCI feed. Scheduled Reboot comes from the vetted
+ImmortalWrt 25.12 LuCI app (as HomeProxy and Argon do). Scheduled reboot
+stays **disabled** until explicitly configured.
+
+**IMPORTANT:** LuCI's standard firmware-upload/upgrade page is NOT a
+validated dual-slot auto-updater for Redmi AX6 stock NAND. The current
+custom platform upgrade logic selects a UBI partition based on the
+`flag_boot_rootfs` value and does not promise inactive-slot writes or
+automatic rollback. Do not encourage novice users to force a factory UBI
+through LuCI sysupgrade. Config backups are NOT raw NAND backups. File
+Manager's LuCI ACL grants extensive filesystem access, so strong admin
+credentials, non-default Wi-Fi passwords and LAN-only management matter.
 
 ## GitHub Release contents
 
