@@ -19,7 +19,7 @@ for pkg in "${base[@]}"; do
   echo "$pkg - 1.0" >> "$temp/tiny.manifest"
 done
 cp "$temp/tiny.manifest" "$temp/plus.manifest"
-for pkg in luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box-tiny kmod-nft-tproxy luci-app-ttyd ttyd; do
+for pkg in luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box-tiny kmod-nft-tproxy luci-app-ttyd ttyd luci-app-filemanager luci-app-autoreboot luci-mod-system; do
   echo "$pkg - 1.0" >> "$temp/plus.manifest"
 done
 bash "$repo/scripts/verify-ax6-variant.sh" manifest tiny "$temp/tiny.manifest"
@@ -52,4 +52,9 @@ grep -Fq "key=password123" "$firstboot"
 grep -Fq '2g) two_g=1' "$firstboot"
 grep -Fq '5g) five_g=1' "$firstboot"
 grep -Fq 'files/etc/uci-defaults/95-ax6-tiny-firstboot' "$repo/scripts/prepare-ppe-tiny.sh"
+# Scheduled reboot comes from ImmortalWrt LuCI, while File Manager and the
+# standard Backup / Flash Firmware UI should stay on OpenWrt LuCI feeds.
+grep -Fq 'applications/luci-app-autoreboot' "$repo/scripts/prepare-ppe-tiny.sh"
+grep -Fq 'feeds/luci/applications/luci-app-filemanager/Makefile' "$repo/scripts/prepare-ppe-tiny.sh"
+grep -Fq 'feeds/luci/modules/luci-mod-system/Makefile' "$repo/scripts/prepare-ppe-tiny.sh"
 echo 'Variant guard regression tests PASSED'
