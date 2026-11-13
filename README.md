@@ -55,6 +55,19 @@ uci commit dhcp
 
 初次设置或恢复出厂设置后如无法连接，请先以有线 LAN 为准，检查设备驱动是否识别到两个无线频段；目前新默认值仍须在 Tiny / Tiny Plus 真机复测。LuCI Terminal 不应设置 `/bin/login -f root` 或向 WAN 开放 ttyd 端口；它的独立端口可能绕过 LuCI 本身的登录界面。
 
+### Tiny Plus 网页管理工具
+
+Plus 版额外提供以下 LuCI 页面，面向希望无需 SSH 即可完成日常维护的用户：
+
+- **系统 → 文件管理（File Manager）**：上传、下载、编辑或删除路由器文件，对应 `luci-app-filemanager`。文件管理器的 LuCI 权限非常宽（可对路由器文件系统执行写操作），**必须先设置强 root 密码**，不要向访客网络或 WAN 暴露管理端。
+- **系统 → 定时重启（Scheduled Reboot）**：通过 `luci-app-autoreboot` 设置每周/每日定时重启。**默认关闭，用户主动开启后才会执行**。需先确认时区和 NTP 时间同步正常。
+- **系统 → 备份 / 升级（Backup / Flash Firmware）**：这是标准 LuCI `luci-mod-system` 提供的功能，Tiny 和 Plus 都已有，无需重复添加插件。可以导出配置备份、恢复配置，以及上传升级镜像。**配置备份不是 NAND/ART/U-Boot 备份**。
+
+> [!WARNING]
+> **关于 AX6 原厂双槽 NAND 的升级：** 目前自定义固件中的 stock-layout 升级脚本会根据 `flag_boot_rootfs` 选择写入分区，**不保证自动升级备用槽位或自动回滚**。已知从旧 LEDE 直接使用默认 `sysupgrade` 可能覆盖正在运行的槽位。RC2 的 LuCI 升级页面目前仅代表系统具备该功能，**不代表本项目已验证一键升级安全性**。只有测试并确认 boot flags、实际写入槽位、镜像兼容性、恢复方案后，才能使用该功能升级本固件；不要使用 LuCI 强制刷入不同格式的 `factory.ubi`、也不要随意勾选强制升级。
+>
+> 此外，新增文件管理器和网页终端会扩大潜在攻击面。公开的初始 Wi-Fi 密码 `password123` 绝不能长期使用；务必更改无线密码、设置强管理员密码，且管理端仅向受信任的 LAN 设备开放。
+
 ## PPE 双版本固件（新路线）
 
 **每次 Release 只使用一个版本号，同时提供 Tiny 和 Tiny Plus 两个版本，各有 Factory UBI 与 Sysupgrade BIN，共四个镜像。**
@@ -67,6 +80,9 @@ uci commit dhcp
 | HomeProxy / sing-box-tiny / VLESS Reality / Shadowsocks | ❌ 不包含代理包 | ✅ 打包代理功能 |
 | nftables TProxy | ❌ 不包含 | ✅ |
 | LuCI Terminal（ttyd） | ❌ 不包含 | ✅ |
+| 文件管理 / 上传（LuCI File Manager） | ❌ 不包含 | ✅ |
+| 图形界面定时重启（默认关闭） | ❌ 不包含独立插件 | ✅ |
+| 标准配置备份 / 恢复 / 上传升级文件 | ✅ LuCI 自带 | ✅ LuCI 自带 |
 | 原厂分区 28 MiB Factory UBI 硬门槛 | ✅ | ✅ |
 
 [**双版本完整说明**](docs/RELEASE-VARIANTS.md) · [**双版本 CI / Pre-release 工作流**](.github/workflows/release-variants.yml) · [**查看 Releases**](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/releases)
