@@ -11,6 +11,8 @@ on:
       - 'scripts/verify-ax6-variant.sh'
       - 'scripts/stage-ax6-variant.sh'
       - 'scripts/check-stock-image.py'
+      - 'files/**'
+      - '.gitattributes'
   workflow_dispatch:
     inputs:
       version:
