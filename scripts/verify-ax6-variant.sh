@@ -45,7 +45,7 @@ for pkg in sing-box xray-core luci-app-ssr-plus kmod-qca-nss-drv-64 \
 done
 
 # The interactive terminal is restricted to Plus, but not a proxy package.
-terminal_packages=(luci-app-ttyd ttyd)
+terminal_packages=(luci-app-ttyd ttyd luci-app-filemanager)
 if [[ "$variant" == tiny-plus ]]; then
   for pkg in "${terminal_packages[@]}"; do
     if ! has "$pkg"; then echo "ERROR: Tiny Plus requires $pkg" >&2; exit 1; fi
