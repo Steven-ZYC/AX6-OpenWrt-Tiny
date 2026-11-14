@@ -24,7 +24,13 @@ AX6-OpenWrt-Tiny 专为 **Redmi AX6（IPQ8071A，128 MiB NAND，原厂分区）*
 - **Tiny**：精简路由固件，包含 PPE/EDMA、NSS Wi-Fi、Firewall4、LuCI 和 Argon。
 - **Tiny Plus**：在 Tiny 基础上增加 HomeProxy、sing-box-tiny、TProxy 和常用 LuCI 工具。
 
-**当前发布： [v0.1.0-rc2](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/releases/tag/v0.1.0-rc2)**（2026-11-14）。项目已在 **Redmi AX6 原厂分区实机进行测试**；RC 版本继续用于完善兼容性和功能验证。具体测试覆盖范围以实际测试记录为准。
+**当前发布： [v0.1.0-rc2](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/releases/tag/v0.1.0-rc2)**（2026-11-14）。项目已在 **Redmi AX6 原厂分区实机进行测试**；RC 版本继续用于完善兼容性和功能验证。
+
+## 高通硬件加速架构
+
+Redmi AX6 搭载高通 IPQ8071A。我们的固件以 **Linux 6.18 + PPE / EDMA + NSS Wi-Fi** 发挥芯片的网络加速能力：**EDMA** 负责高速收发，**PPE** 将符合条件的路由、NAT 流量交由硬件转发，**NSS Wi-Fi** 优化无线数据路径，并与 Firewall4 / nftables 协同工作。
+
+旧式方案常依赖 NSS/ECM、Shortcut-FE 等厂商驱动与旧内核补丁。我们采用 **PPE 主导转发、NSS 专注无线** 的新架构，减少旧组件堆叠：**数据通路更清晰，更贴近新内核，后续维护也更轻便。**
 
 ## 功能对比
 
@@ -58,7 +64,7 @@ Tiny Plus 仅保留一个代理核心：**sing-box-tiny**。当前编译选项�
 | AX6 原厂分区支持 | 参考 ImmortalWrt 25.12 的 stock 布局，在构建阶段适配 PPE/NSS 源码 |
 | 设备 Target / Profile | `qualcommax/ipq807x` / `redmi_ax6-stock` |
 
-**版本来源说明：** 新版 Tiny / Tiny Plus **不是直接基于 ImmortalWrt 25.12 编译的固件**。ImmortalWrt 主要用于 AX6 原厂分区适配及 HomeProxy / Argon 软件包；旧的 ImmortalWrt 25.12 构建工作流仍保留在 [`build.yml`](.github/workflows/build.yml)，与新版双版本构建分开。
+新版 Tiny / Tiny Plus 以 **OpenWrt PPE/NSS** 为基础，参考 ImmortalWrt 25.12 适配 AX6 原厂分区，并选用其 HomeProxy / Argon 软件包。旧版 ImmortalWrt 构建保留在 [`build.yml`](.github/workflows/build.yml)。
 
 新版工作流将 PPE 主源码固定在以下 commit，便于复现：
 
