@@ -1,0 +1,134 @@
+# One-time release bridge: publish RC2 from the successful PR #4 build.
+# Triggered only when THIS file is added/changed on main.
+# Existing default manual workflow remains the recommended future release path.
+name: Publish AX6 v0.1.0-rc2 from verified RC2 artifacts
+on:
+  push:
+    branches: [ main ]
+    paths: [ '.github/workflows/publish-rc2-verified.yml' ]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Verify merged source matches successful RC2 build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: 60f1220c707f338f8d2da4933da98e5b66304c0f
+          VERIFIED_RUN: '43502236196'
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_RUN" --jq '.conclusion')" == success ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_RUN" --jq '.head_sha')" == "$SOURCE_SHA" ]]
+          git cat-file -e "$SOURCE_SHA^{commit}"
+          # A new workflow file is not part of the image; all build inputs
+          # must be EXACTLY the same files that passed the full dual build.
+          git diff --exit-code "$SOURCE_SHA" HEAD -- \
+            configs scripts files tests .gitattributes \
+            .github/workflows/release-variants.yml \
+            .github/workflows/lint.yml
+          if gh release view v0.1.0-rc2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'ERROR: RC2 release already exists, never overwrite' >&2
+            exit 1
+          fi
+
+      - name: Download both previously verified firmware artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          for variant in tiny tiny-plus; do
+            mkdir -p "bundles/$variant"
+            gh run download 43502236196 --repo "$GITHUB_REPOSITORY" \
+              --name "ax6-release-$variant-43502236196" --dir "bundles/$variant"
+          done
+
+      - name: Independently verify SHA256, packages, geometry and source provenance
+        run: |
+          set -Eeuo pipefail
+          mkdir -p release
+          for variant in tiny tiny-plus; do
+            d="bundles/$variant"
+            test -s "$d/AX6-$variant-factory.ubi"
+            test -s "$d/AX6-$variant-sysupgrade.bin"
+            test -s "$d/AX6-$variant.manifest"
+            test -s "$d/AX6-$variant-IMAGE-AUDIT.md"
+            (cd "$d" && sha256sum -c "SHA256SUMS-$variant")
+            bash scripts/verify-ax6-variant.sh manifest "$variant" "$d/AX6-$variant.manifest"
+            bytes="$(stat -c%s "$d/AX6-$variant-factory.ubi")"
+            (( bytes > 0 && bytes <= 28 * 1024 * 1024 )) || {
+              echo "ERROR: $variant factory UBI is too large: $bytes bytes" >&2
+              exit 1
+            }
+            cp "$d/AX6-$variant-factory.ubi" "release/AX6-$variant-v0.1.0-rc2-factory.ubi"
+            cp "$d/AX6-$variant-sysupgrade.bin" "release/AX6-$variant-v0.1.0-rc2-sysupgrade.bin"
+            cp "$d/AX6-$variant.manifest" "release/AX6-$variant-v0.1.0-rc2.manifest"
+            cp "$d/AX6-$variant-IMAGE-AUDIT.md" "release/AX6-$variant-v0.1.0-rc2-IMAGE-AUDIT.md"
+          done
+          for file in PPE-SOURCE-SHA.txt FEED-SHAS.txt IMMORTALWRT-LUCI-SHA.txt; do
+            cmp "bundles/tiny/$file" "bundles/tiny-plus/$file"
+            cp "bundles/tiny/$file" "release/$file"
+          done
+          test "$(cat release/PPE-SOURCE-SHA.txt)" = 7d65a3ed836a0071e2f19a5944682f457e02efe0
+          (cd release && sha256sum ./*.ubi ./*.bin > SHA256SUMS)
+          test "$(find release -maxdepth 1 -type f -name '*.ubi' | wc -l)" -eq 2
+          test "$(find release -maxdepth 1 -type f -name '*.bin' | wc -l)" -eq 2
+
+      - name: Publish one experimental pre-release; never update an existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          cat > release/RELEASE-NOTES.md <<'NOTES'
+          # Redmi AX6 Tiny & Tiny Plus v0.1.0-rc2 — EXPERIMENTAL
+
+          **For original stock-layout NAND Redmi AX6 only (IPQ8071A).**
+          The previous RC1 Tiny Plus is reported to boot on one real AX6,
+          but **RC2's first-boot Wi-Fi, DNS, LuCI, NSS/PPE and upgrade/rollback
+          behavior have NOT been comprehensively validated on hardware**.
+          Do not assume this is a stable, fail-safe or universally flashable release.
+
+          Both variants: Qualcomm PPE/EDMA and NSS Wi-Fi, Argon/Chinese LuCI.
+          On a clean installation / reset: LAN IP 192.168.123.1; 2.4 GHz
+          SSID 'Not your internet^_^'; 5 GHz SSID 'Not your internet^_^ 5G';
+          WPA2/WPA3 mixed, public shared Wi-Fi password 'password123'.
+          DNS Rebind Protection is disabled for campus DNS compatibility.
+
+          Tiny Plus only: HomeProxy, sing-box-tiny (Reality/Shadowsocks target),
+          nft TProxy, LuCI Terminal and LuCI File Manager/upload.
+          **Both already have built-in LuCI Scheduled Tasks (cron) and
+          Backup / Flash Firmware; the separate luci-app-autoreboot is NOT
+          in RC2.** The stock-dual-slot LuCI upgrade route is NOT tested.
+
+          SECURITY: Set strong Wi-Fi and root passwords immediately. The
+          default Wi-Fi password is publicly known; DNS rebinding protection
+          is off by default. Re-enable it if not required for campus networks.
+          Do not expose LuCI/ttyd to WAN.
+
+          Factory UBI and Sysupgrade BIN are NOT interchangeable.
+          Do not force-flash a factory UBI in LuCI or assume safe inactive-slot
+          upgrades. Keep a verified recovery route and critical NAND backups.
+
+          Built from exactly the inputs of successful dual-variant CI
+          run 43502236196 (PR #4, source 60f1220...), with SHA256 and
+          manifest/package/28MiB checks reverified for this publication.
+          NOTES
+          if gh release view v0.1.0-rc2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'ERROR: release already exists' >&2
+            exit 1
+          fi
+          gh release create v0.1.0-rc2 \
+            release/*.ubi release/*.bin release/*.manifest \
+            release/*IMAGE-AUDIT.md \
+            release/SHA256SUMS release/*SHA.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --latest=false \
+            --title "Redmi AX6 Tiny & Tiny Plus v0.1.0-rc2 (EXPERIMENTAL)" \
+            --notes-file release/RELEASE-NOTES.md
