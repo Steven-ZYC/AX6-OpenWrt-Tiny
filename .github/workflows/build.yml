@@ -79,6 +79,10 @@ jobs:
           make defconfig
           bash ../scripts/check-config.sh .config
 
+      - name: Audit Qualcomm datapath and stock layout
+        working-directory: openwrt
+        run: bash ../scripts/audit-datapath.sh .config ../dist/DATAPATH-AUDIT.md
+
       - name: Download source archives
         working-directory: openwrt
         run: |
@@ -122,6 +126,7 @@ jobs:
             dist/*.json
             dist/build.config
             dist/BUILD-REPORT.md
+            dist/DATAPATH-AUDIT.md
             dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 14

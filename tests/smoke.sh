@@ -67,4 +67,104 @@ with ubi.open('r+b') as stream:
     stream.truncate(29 * 1024 * 1024)
 assert subprocess.run(checker, capture_output=True).returncode != 0
 PY
+# Source-level datapath audit: legacy baseline is reported, never mislabelled as PPE.
+mkdir -p "$work/target/linux/qualcommax/ipq807x" "$work/target/linux/qualcommax/image"
+printf 'KERNEL_PATCHVER:=6.12\nDEFAULT_PACKAGES += kmod-qca-nss-dp\n' > "$work/target/linux/qualcommax/Makefile"
+printf 'CONFIG_NET_DSA=y\n' > "$work/target/linux/qualcommax/ipq807x/config-default"
+printf 'define Device/redmi_ax6-stock\nendef\n' > "$work/target/linux/qualcommax/image/ipq807x.mk"
+cp "$repo/configs/redmi-ax6-stock.config" "$work/.config"
+(cd "$work" && bash "$repo/scripts/audit-datapath.sh" .config datapath-audit.md)
+grep -Fq 'Legacy qca-nss-dp' "$work/datapath-audit.md"
+grep -Fq 'NOT AVAILABLE via the new upstream' "$work/datapath-audit.md"
+# PPE+NSS source without an explicit stock definition must be rejected.
+printf 'define Device/redmi_ax6\nendef\n' > "$work/target/linux/qualcommax/image/ipq807x.mk"
+if (cd "$work" && bash "$repo/scripts/audit-datapath.sh" .config datapath-audit.md >/dev/null 2>&1); then
+  echo 'ERROR: missing stock definition incorrectly accepted by datapath audit' >&2; exit 1
+fi
+# Experimental PPE-only profile port must match reviewed upstream structure.
+mkdir -p "$work/ppe/target/linux/qualcommax/ipq807x" "$work/ppe/target/linux/qualcommax/image"
+printf 'KERNEL_PATCHVER:=6.18\n' > "$work/ppe/target/linux/qualcommax/Makefile"
+printf 'CONFIG_QCOM_EDMA=y\nCONFIG_QCOM_80211AX_PPE=y\n' > "$work/ppe/target/linux/qualcommax/ipq807x/config-default"
+cat > "$work/ppe/target/linux/qualcommax/image/ipq807x.mk" <<'PPE_DEVICE'
+define Device/xiaomi_ax3600
+  $(call Device/FitImage)
+  $(call Device/UbiFit)
+  KERNEL_SIZE := 36608k
+endef
+define Device/redmi_ax6
+	$(call Device/xiaomi_ax3600)
+	DEVICE_VENDOR := Redmi
+	DEVICE_MODEL := AX6
+	DEVICE_PACKAGES := ipq-wifi-redmi_ax6
+endef
+TARGET_DEVICES += redmi_ax6
+PPE_DEVICE
+# Stock-layout migration also requires DTS, U-Boot env, Wi-Fi, LAN and upgrade hooks.
+mkdir -p "$work/ppe/target/linux/qualcommax/dts"
+mkdir -p "$work/ppe/target/linux/qualcommax/ipq807x/base-files/lib/upgrade"
+mkdir -p "$work/ppe/target/linux/qualcommax/ipq807x/base-files/etc/board.d"
+mkdir -p "$work/ppe/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/firmware"
+mkdir -p "$work/ppe/target/linux/qualcommax/ipq807x/base-files/etc/init.d"
+mkdir -p "$work/ppe/package/boot/uboot-tools/uboot-envtools/files"
+cat > "$work/ppe/target/linux/qualcommax/dts/ipq8071-ax6.dts" <<'BASE_DTS'
+compatible = "redmi,ax6", "qcom,ipq8074";
+reg = <0x2dc0000 0x5220000>;
+BASE_DTS
+cat > "$work/ppe/target/linux/qualcommax/dts/ipq8071-ax3600.dtsi" <<'BASE_DTSI'
+compatible = "fixed-partitions";
+label = "ubi_kernel";
+swport2: port@2 {};
+swport3: port@3 {};
+swport4: port@4 {};
+swport5: port@5 {};
+BASE_DTSI
+printf 'CONFIG_MTD_QCOMSMEM_PARTS=y\n' > "$work/ppe/target/linux/qualcommax/config-6.18"
+cat > "$work/ppe/package/boot/uboot-tools/uboot-envtools/files/qualcommax_ipq807x" <<'PPE_ENV'
+redmi,ax6|\
+xiaomi,ax3600)
+PPE_ENV
+cat > "$work/ppe/target/linux/qualcommax/ipq807x/base-files/etc/board.d/02_network" <<'PPE_NET'
+	redmi,ax6|\
+	xiaomi,ax3600)
+PPE_NET
+printf 'redmi,ax6)\n' > "$work/ppe/target/linux/qualcommax/ipq807x/base-files/etc/board.d/01_leds"
+cat > "$work/ppe/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/firmware/11-ath11k-caldata" <<'PPE_WIFI'
+	redmi,ax6|\
+	xiaomi,ax3600)
+PPE_WIFI
+cat > "$work/ppe/target/linux/qualcommax/ipq807x/base-files/etc/init.d/bootcount" <<'PPE_BOOTCOUNT'
+boot() {
+	case $(board_name) in
+	netgear,wax630)
+		fw_setenv boot_count 0
+	;;
+	esac
+}
+PPE_BOOTCOUNT
+cat > "$work/ppe/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh" <<'PPE_UPGRADE'
+platform_do_upgrade() {
+	case "$(board_name)" in
+	redmi,ax6)
+		nand_do_upgrade "$1"
+		;;
+	*)
+		default_do_upgrade "$1"
+		;;
+	esac
+}
+PPE_UPGRADE
+(cd "$work/ppe" && bash "$repo/scripts/prepare-ppe-experiment.sh")
+grep -Fqx 'TARGET_DEVICES += redmi_ax6-stock' "$work/ppe/target/linux/qualcommax/image/ipq807x.mk"
+grep -Fq 'compatible = "redmi,ax6-stock"' "$work/ppe/target/linux/qualcommax/dts/ipq8071-ax6-stock.dts"
+grep -Fq 'compatible = "qcom,smem-part"' "$work/ppe/target/linux/qualcommax/dts/ipq8071-ax6-stock.dts"
+grep -Fq 'DEVICE_DTS := ipq8071-ax6-stock' "$work/ppe/target/linux/qualcommax/image/ipq807x.mk"
+grep -Fq 'redmi,ax6-stock)' "$work/ppe/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh"
+sh -n "$work/ppe/target/linux/qualcommax/ipq807x/base-files/etc/init.d/bootcount"
+sh -n "$work/ppe/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh"
+cp "$repo/configs/redmi-ax6-ppe-only-stock.config" "$work/ppe/.config"
+(cd "$work/ppe" && bash "$repo/scripts/check-ppe-config.sh" .config)
+# Upstream image profile change must be a hard error.
+if (cd "$work/ppe" && bash "$repo/scripts/prepare-ppe-experiment.sh" >/dev/null 2>&1); then
+  echo 'ERROR: repeated PPE stock port unexpectedly accepted' >&2; exit 1
+fi
 printf 'SMOKE TESTS PASSED\n'
