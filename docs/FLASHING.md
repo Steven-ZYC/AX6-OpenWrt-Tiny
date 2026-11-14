@@ -1,38 +1,63 @@
-# 刷机安全说明 / Read before flashing
+# Redmi AX6 刷机说明
 
-> **当前项目未完成真实设备验证。不提供「直接执行」的 mtd / ubiformat / bootloader 写入命令。**
+适用于 **Redmi AX6 原厂 NAND 分区**（`redmi_ax6-stock`）。本流程使用 Release 中的 **Factory UBI**，不使用 `sysupgrade.bin`。
 
-## 为什么这个固件有风险？
+## 双系统分区
 
-Redmi AX6 使用 NAND / UBI，且新源码提供两种不同的 AX6 设备配置：
+| 槽位 | 分区 | `flag_boot_rootfs` |
+|---|---|---|
+| Slot 0 | `/dev/mtd12`（`rootfs`） | `0` |
+| Slot 1 | `/dev/mtd13`（`rootfs_1`） | `1` |
 
-- `redmi_ax6`：上游名称对应 OpenWrt expanded layout。
-- `redmi_ax6-stock`：上游名称对应 stock（原厂分区）布局。
+AX6 有两个系统槽位。启动时只使用其中一个；可将新固件写入另一个槽位，保留旧系统以便切回。
 
-本仓库仅选择 `redmi_ax6-stock`。**不要仅凭路由器外观、旧固件文件名、128 MiB Flash 总容量或 sysupgrade 包体积判断可以直接刷入。**
+以下是**已实机验证**的路径：从 Slot 0 的 LEDE 启动，将 Tiny Plus 写入 Slot 1。
 
-## 开始之前请完成
+## 刷入 Slot 1
 
-1. 核实铭牌型号：**Redmi AX6**，非 AX6S / AX6000。
-2. SSH 检查并留存：`cat /proc/mtd`、`ubinfo -a`、`cat /etc/openwrt_release`、`df -h`、当前 `uboot-envtools` / bootloader 布局资料。
-3. 备份当前有效配置、Wi-Fi 射频校准数据的可恢复副本，且确认备份 **实际可读、可恢复**；不要分享校准内容。
-4. 确认当前 Bootloader、系统布局和可行的恢复方式（例如串口、已验证的安全恢复工具）。
-5. 下载文件后检查 `SHA256SUMS`，并查看 `BUILD-REPORT.md`、`.manifest`、`.config`。
-6. 首次建议在可物理接触的设备上测试，而非远程唯一上网路由器。
-7. 有新版 `factory.ubi` 并不等于可以直接用 LuCI 的 Sysupgrade 上传它；`sysupgrade.bin` 也不一定适合任何现有固件版本。
+**1. 确认当前分区**
 
-## 首次启动测试清单
+通过 SSH 执行：
 
-- [ ] 能正常启动、SSH / LuCI 访问、设置新 root 密码
-- [ ] 有线 WAN 获取 IP、有线 LAN / DHCP 正常
-- [ ] 2.4 GHz、5 GHz Wi-Fi 可用、加密和地区设置正确
-- [ ] 普通 DNS、IPv4（以及需要的 IPv6）正常
-- [ ] Firewall4 可启动，NAT / 转发可用
-- [ ] HomeProxy 可启动 / 关闭，不会破坏原生 DNS 和联网
-- [ ] VLESS Reality 节点真正连接成功
-- [ ] Shadowsocks 节点真正连接成功
-- [ ] 规则与 DNS 分流无明显泄漏，透明代理 TCP / UDP 功能符合预期
-- [ ] 软重启和断电重启后稳定
-- [ ] 能使用已验证的恢复路径回到上一版
+```sh
+cat /proc/mtd
+fw_printenv flag_boot_rootfs flag_last_success
+```
 
-确认测试通过后才应把 Release 从 **Pre-release** 升格为稳定版本。
+确认 `mtd12=rootfs`、`mtd13=rootfs_1` 且 `flag_boot_rootfs=0`。**不符则不要执行下方写入命令。**
+
+**2. 上传并写入镜像**
+
+从 [Releases](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/releases) 下载对应的 `AX6-tiny-plus-<版本>-factory.ubi`，核对 SHA256 后上传至路由器的 `/tmp/AX6-tiny-plus-factory.ubi`。
+
+```sh
+sha256sum /tmp/AX6-tiny-plus-factory.ubi
+ubiformat /dev/mtd13 -y -f /tmp/AX6-tiny-plus-factory.ubi
+```
+
+**3. 写入成功后切换启动槽位**
+
+```sh
+fw_setenv flag_last_success 1
+fw_setenv flag_boot_rootfs 1
+fw_printenv flag_boot_rootfs flag_last_success
+sync
+reboot
+```
+
+新系统的默认管理地址为 `192.168.123.1`（适用于当前 RC2 首次启动配置）。
+
+## 切回 Slot 0
+
+若新系统仍可通过 SSH 操作：
+
+```sh
+fw_setenv flag_try_sys1_failed 0
+fw_setenv flag_ota_reboot 0
+fw_setenv flag_last_success 0
+fw_setenv flag_boot_rootfs 0
+sync
+reboot
+```
+
+旧系统仍保留在 `mtd12`。若新系统无法启动且无法连接 SSH，则需使用设备的引导恢复方式；**双分区不代表一定会自动回退**。
