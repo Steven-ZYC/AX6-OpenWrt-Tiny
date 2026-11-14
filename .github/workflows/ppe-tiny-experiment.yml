@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/ppe-tiny-experiment.yml'
-      - 'configs/redmi-ax6-ppe-tiny-stock.config'
+      - 'configs/redmi-ax6-ppe-tiny-plus-stock.config'
       - 'scripts/prepare-ppe-tiny.sh'
       - 'scripts/check-ppe-tiny-config.sh'
       - 'scripts/audit-ppe-tiny-manifest.sh'
@@ -23,11 +23,11 @@ permissions:
 
 concurrency:
   group: ax6-ppe-tiny-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   source-guard:
-    name: PPE Tiny source/feed/Kconfig check
+    name: PPE Tiny Plus source/feed/Kconfig check
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
@@ -50,7 +50,7 @@ jobs:
       - name: Apply config and confirm all requested packages
         working-directory: ppe-source
         run: |
-          cp ../configs/redmi-ax6-ppe-tiny-stock.config .config
+          cp ../configs/redmi-ax6-ppe-tiny-plus-stock.config .config
           make defconfig
           bash ../scripts/check-ppe-tiny-config.sh .config
           bash ../scripts/audit-datapath.sh .config ../ppe-tiny-report/DATAPATH-AUDIT.md
@@ -105,7 +105,7 @@ jobs:
       - name: Generate and validate final package selection
         working-directory: ppe-source
         run: |
-          cp ../configs/redmi-ax6-ppe-tiny-stock.config .config
+          cp ../configs/redmi-ax6-ppe-tiny-plus-stock.config .config
           make defconfig
           bash ../scripts/check-ppe-tiny-config.sh .config
           bash ../scripts/audit-datapath.sh .config ../ppe-tiny-report/DATAPATH-AUDIT.md
