@@ -7,6 +7,8 @@ on:
       - 'scripts/**'
       - 'configs/**'
       - 'tests/**'
+      - 'files/**'
+      - '.gitattributes'
   pull_request:
   workflow_dispatch:
 

@@ -16,11 +16,55 @@ Do not confuse with AX6S, AX6000, expanded NAND layouts or alternate U-Boot part
 | HomeProxy, HomeProxy Chinese translation | **No** | **Yes** |
 | sing-box-tiny (uTLS + Clash API, no QUIC/gVisor) | **No** | **Yes** |
 | nftables TProxy kernel module | **No** | **Yes** |
+| LuCI browser terminal (luci-app-ttyd + ttyd) | **No** | **Yes** |
+| LuCI File Manager (file upload/download) | **No** | **Yes** |
+| Scheduled Tasks / Cron web page | Already provided by LuCI | Already provided by LuCI |
+| Backup / Restore / Flash web page | Already provided by LuCI | Already provided by LuCI |
 | VLESS Reality / Shadowsocks | **No proxy client** | **Target features (runtime verification needed)** |
 
 Tiny and Tiny Plus share the SAME source revision and foundational network
 packages. Only the Plus variant may install proxy-related packages. The
 build checks the **actual installed manifest**, not just the requested config.
+
+## RC2 extra LuCI utilities
+
+Only Plus requests `luci-app-filemanager` from upstream LuCI.
+Both builds already have LuCI's Scheduled Tasks (cron UI) and
+Backup / Flash Firmware interfaces. Scheduled reboot is **not enabled
+by default**: users may create a cron entry in the UI.
+
+**Critical stock AX6 safety constraint:** the stock-profile upgrade hook
+chooses the partition based on `flag_boot_rootfs`; do not claim the
+stock LuCI upgrade UI safely flashes the *inactive* slot. Configuration
+backups also are not NAND/ART/U-Boot snapshots. Keep the flashing
+workflow experimental until explicitly hardware validated.
+
+## RC2 first-boot defaults (NOT in published RC1)
+
+The next build embeds `files/etc/uci-defaults/95-ax6-tiny-firstboot` in
+**both** variants. New installations / clean-overlay boots use:
+
+- LAN: `192.168.123.1`.
+- 2.4 GHz: `Not your internet^_^`.
+- 5 GHz: `Not your internet^_^ 5G`.
+- WPA2/WPA3 Personal transitional mode (`sae-mixed`), known shared
+  default password `password123` (no spaces), both radios enabled.
+- DNS rebind protection **disabled**, for environments where campus
+  DNS intentionally returns private addresses.
+- Plus variant adds the LuCI interactive terminal with `/bin/login`
+  authentication expectation. **Do not bypass login or expose port 7681 on WAN.**
+
+**Security warning:** Common/public Wi-Fi credentials and global DNS rebind
+exceptions are insecure outside a controlled environment. Set a strong
+router administrator password immediately and rotate both Wi-Fi passwords.
+Re-enable DNS rebind protection via
+`uci set dhcp.@dnsmasq[0].rebind_protection=1`, then commit and restart
+dnsmasq. Prefer per-domain exemptions if they meet campus needs.
+
+This initial-default script is a build overlay, not an auto-migration tool;
+preserved user configurations and existing radio interfaces must be validated
+after upgrade. Changing this branch does **not** modify the already published
+`v0.1.0-rc1` binaries. The stock-layout and 28 MiB size audits remain mandatory.
 
 ## GitHub Release contents
 

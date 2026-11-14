@@ -9,6 +9,14 @@ set -Eeuo pipefail
 mkdir -p ../ppe-tiny-report
 bash ../scripts/prepare-ppe-experiment.sh
 
+# Include the same user-facing defaults in Tiny and Tiny Plus.
+# Files land in /etc/uci-defaults/ and apply on a clean initial boot;
+# do not edit a running router or touch U-Boot flags here.
+test -s ../files/etc/uci-defaults/95-ax6-tiny-firstboot
+mkdir -p files/etc/uci-defaults
+cp ../files/etc/uci-defaults/95-ax6-tiny-firstboot files/etc/uci-defaults/
+test -s files/etc/uci-defaults/95-ax6-tiny-firstboot
+
 cp feeds.conf.default feeds.conf
 cat >> feeds.conf <<'FEEDS'
 src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;ppe-nss

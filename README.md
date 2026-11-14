@@ -15,7 +15,52 @@
 </div>
 
 > [!WARNING]
-> **实验性项目：PPE + Tiny Plus 已完成云编译；尚未验证 Redmi AX6 真机刷入、Wi-Fi / NAT / 代理功能。** 首次成功构建 ≠ 可以安全刷机。此仓库目前面向 **Redmi AX6 原厂分区（stock layout）**，不是 AX6S、AX6000，也不是扩容 / 自定义 U-Boot 布局。务必先读 [刷机安全说明](docs/FLASHING.md)。
+> **实验性项目：v0.1.0-rc1 已有用户报告在 Redmi AX6 原厂双分区上成功启动，但 Wi-Fi / NAT / 代理及系统升级的完整测试尚未结束。** 首次成功构建 ≠ 可以安全刷机。此仓库目前面向 **Redmi AX6 原厂分区（stock layout）**，不是 AX6S、AX6000，也不是扩容 / 自定义 U-Boot 布局。务必先读 [刷机安全说明](docs/FLASHING.md)。
+
+## 首次启动默认配置（下一版 RC2，当前 v0.1.0-rc1 不受影响）
+
+本节描述 `feat/ax6-rc2-firstboot-defaults` 中的新编译默认值，**已经发布的 v0.1.0-rc1 不会自动改变**。Tiny 与 Tiny Plus 使用同一套首次启动配置，在全新安装、清空配置或恢复出厂设置后应用。保留已有配置的升级原则上应保持自定义设置。
+
+| 项目 | 首次启动默认值 |
+| :-- | :-- |
+| LAN 管理地址 | **`192.168.123.1`**（LuCI: `http://192.168.123.1`，HTTPS 如可用） |
+| 2.4 GHz SSID | **`Not your internet^_^`** |
+| 5 GHz SSID | **`Not your internet^_^ 5G`** |
+| 两个 Wi-Fi 的加密方式 | **WPA2/WPA3 Personal 混合（`sae-mixed`）** |
+| 两个 Wi-Fi 的默认密码 | **`password123`**（小写、无空格） |
+| DNS Rebind Protection | **关闭**（`rebind_protection=0`，为了兼容会返回内网地址的校园 DNS） |
+| LuCI 网页终端 | **仅 Tiny Plus**：`luci-app-ttyd` + `ttyd`；终端应使用 `/bin/login` 认证 |
+
+> [!CAUTION]
+> **这些是便利优先、不是安全优先的公开默认配置。** 所有安装该镜像的路由器均使用相同的已公开 Wi-Fi 密码 `password123`。拿到同一个 Wi-Fi 的人可能访问路由器的 LAN 及管理页面。**第一次接入后必须立即修改 Wi-Fi 密码、设置强 root 管理密码**；未经更改不建议在开放或不可信场所长期使用。即使启用 WPA3 混合模式，也无法弥补已知、弱且共用的密码。
+>
+> **DNS Rebind Protection 默认关闭存在安全风险：** 恶意站点更容易通过 DNS 绑定攻击探测或访问你的内网管理服务。如果更重视安全，强烈建议重新开启；学生宿舍确实需要解析校园内网地址时可先保留关闭，或改为开启保护后只对白名单域名豁免。
+
+重新开启 DNS Rebind Protection（SSH）：
+
+```sh
+uci set dhcp.@dnsmasq[0].rebind_protection='1'
+uci commit dhcp
+/etc/init.d/dnsmasq restart
+```
+
+若仅 `eduhk.hk` 需要返回内网地址，**更安全的选择**是开启保护并仅豁免学校域名：
+
+```sh
+uci set dhcp.@dnsmasq[0].rebind_protection='1'
+uci add_list dhcp.@dnsmasq[0].rebind_domain='eduhk.hk'
+uci commit dhcp
+/etc/init.d/dnsmasq restart
+```
+
+初次设置或恢复出厂设置后如无法连接，请先以有线 LAN 为准，检查设备驱动是否识别到两个无线频段；目前新默认值仍须在 Tiny / Tiny Plus 真机复测。LuCI Terminal 不应设置 `/bin/login -f root` 或向 WAN 开放 ttyd 端口；它的独立端口可能绕过 LuCI 本身的登录界面。
+
+### 文件上传、定时重启及备份升级（RC2）
+
+- **仅 Tiny Plus** 新增官方 `luci-app-filemanager`，在 LuCI 网页中管理文件并上传下载。请不要直接上传覆盖 U-Boot、MTD 等分区设备；也不要把文件管理器开放给 WAN。
+- **两个版本都已有**「系统 → 计划任务」（LuCI Scheduled Tasks）。可自行加入定时重启 Cron，例如 `0 5 * * 0 /sbin/reboot` 表示每周日**设备当地时间** 05:00 重启。**默认不启用定时重启**，避免在升级、网络故障或定时任务中断时意外重启。确保时区和 NTP 正确。
+- **两个版本都已有**「系统 → 备份/升级」（Backup / Flash Firmware）。可以下载、恢复常规配置备份。备份不会自动包含完整 NAND、ART/校准数据、U-Boot 或所有安装插件。
+- **特别注意原厂双槽**：AX6 Tiny 的 stock 布局升级脚本选择的分区取决于 `flag_boot_rootfs`，**不能假定 LuCI 的固件升级会写入非活动槽**；在专门验证之前，不要使用「强制升级」或通过该页面上传 `factory.ubi`。
 
 ## PPE 双版本固件（新路线）
 
@@ -28,6 +73,10 @@
 | Firewall4 / nftables | ✅ | ✅ |
 | HomeProxy / sing-box-tiny / VLESS Reality / Shadowsocks | ❌ 不包含代理包 | ✅ 打包代理功能 |
 | nftables TProxy | ❌ 不包含 | ✅ |
+| LuCI Terminal（ttyd） | ❌ 不包含 | ✅ |
+| LuCI 文件管理 / 上传下载 | ❌ 不包含 | ✅ `luci-app-filemanager` |
+| 定时重启 | ✅ 内置「系统 → 计划任务」，按需添加 Cron | ✅ 内置「系统 → 计划任务」，按需添加 Cron |
+| 配置备份 / 固件升级菜单 | ✅ LuCI 内置 | ✅ LuCI 内置 |
 | 原厂分区 28 MiB Factory UBI 硬门槛 | ✅ | ✅ |
 
 [**双版本完整说明**](docs/RELEASE-VARIANTS.md) · [**双版本 CI / Pre-release 工作流**](.github/workflows/release-variants.yml) · [**查看 Releases**](https://github.com/Steven-ZYC/AX6-OpenWrt-Tiny/releases)
@@ -62,7 +111,7 @@
 | 透明代理 | Firewall4 + nftables TProxy 相关依赖 |
 | 压缩块大小 | SquashFS 1024 KiB；压缩算法需检查实际镜像 |
 | 存储优化目标 | ****Factory UBI ≤28 MiB 硬性限制**** sysupgrade 包，**超过则构建失败；仍须检查设备实际分区和坏块 |
-| 默认 LAN IP / 凭据 | 以构建时上游默认值为准；**不预置通用密码** |
+| 默认 LAN IP / 凭据 | 历史主构建（ImmortalWrt 25.12）：遵循上游；**新的 PPE RC2 首次配置见上文（192.168.123.1 / password123）** |
 | PPE / NSS / Wi-Fi | 当前保留旧驱动与 Wi-Fi 支持，**未验证 PPE/NSS 加速**；构建报告附静态数据路径审计 |
 
 ## 构建状态与下载
@@ -90,7 +139,7 @@
 <details>
 <summary><strong>为什么不把所有插件全部装进去？</strong></summary>
 
-此项目**有意不打包**：OpenClash、SSR Plus、Passwall、Xray、V2Ray-plugin、Trojan 独立核心、Docker、Samba、DLNA、FTP、AdGuard Home、SmartDNS、TTyD、额外主题、多数 VPN 工具。它们并不是「没用」，而是不属于本项目最小目标。部分系统包会因依赖自动出现，不建议在构建后直接在路由器上强删。
+此项目**有意不打包**：OpenClash、SSR Plus、Passwall、Xray、V2Ray-plugin、Trojan 独立核心、Docker、Samba、DLNA、FTP、AdGuard Home、SmartDNS、额外主题、多数 VPN 工具。它们并不是「没用」，而是不属于本项目最小目标。部分系统包会因依赖自动出现，不建议在构建后直接在路由器上强删。
 
 </details>
 

@@ -1,0 +1,109 @@
+#!/bin/sh
+# AX6 Tiny / Tiny Plus public, user-requested FIRST-BOOT defaults.
+# WARNING: password123 is a common/shared Wi-Fi password, NOT secure.
+# This script runs inside OpenWrt's uci_apply_defaults subshell.
+# Only apply to the stock-layout Redmi AX6 profile.
+[ "$(board_name)" = "redmi,ax6-stock" ] || exit 0
+
+# The marker lives under /etc/config so it is normally preserved by sysupgrade.
+# A fresh / empty-overlay installation intentionally gets these defaults again.
+marker=/etc/config/.ax6-tiny-firstboot-applied
+[ -e "$marker" ] && exit 0
+
+uci -q get network.lan >/dev/null || exit 1
+uci -q get 'dhcp.@dnsmasq[0]' >/dev/null || exit 1
+
+# Generate the radio config if it has not been populated yet.
+[ -s /etc/config/wireless ] || /sbin/wifi config
+radios="$(uci -q show wireless | sed -n 's/^wireless\.\([^.=]*\)=wifi-device$/\1/p')"
+ifaces="$(uci -q show wireless | sed -n 's/^wireless\.\([^.=]*\)=wifi-iface$/\1/p')"
+
+# Fail closed on unknown / missing band mapping. Never guess radio0=2.4 GHz.
+two_g=0
+five_g=0
+for radio in $radios; do
+    band="$(uci -q get "wireless.$radio.band" 2>/dev/null || true)"
+    if [ -z "$band" ]; then
+        case "$(uci -q get "wireless.$radio.hwmode" 2>/dev/null || true)" in
+            11g|11b) band=2g ;;
+            11a) band=5g ;;
+        esac
+    fi
+    case "$band" in
+        2g) two_g=1 ;;
+        5g) five_g=1 ;;
+    esac
+done
+if [ "$two_g" != 1 ] || [ "$five_g" != 1 ]; then
+    echo "AX6 firstboot: missing 2g or 5g radio; keep defaults script for retry" >&2
+    exit 1
+fi
+
+# Respect an already-customized LAN IP when restoring existing settings.
+current_lan="$(uci -q get network.lan.ipaddr 2>/dev/null || true)"
+case "$current_lan" in
+    192.168.1.1|192.168.1.1/24|'')
+        # Current upstream config_generate writes a *list* with CIDR
+        # (192.168.1.1/24); replacing it with a plain option risks
+        # diverging from the expected netifd address representation.
+        uci -q delete network.lan.ipaddr
+        uci add_list network.lan.ipaddr='192.168.123.1/24'
+        ;;
+esac
+
+# Campus/dorm compatibility: intentionally disable rebind protection.
+# IMPORTANT: this makes DNS rebinding attacks easier. README documents
+# how to opt back in. Do not disable DNSSEC or the firewall.
+uci set 'dhcp.@dnsmasq[0].rebind_protection=0'
+
+for radio in $radios; do
+    band="$(uci -q get "wireless.$radio.band" 2>/dev/null || true)"
+    if [ -z "$band" ]; then
+        case "$(uci -q get "wireless.$radio.hwmode" 2>/dev/null || true)" in
+            11g|11b) band=2g ;;
+            11a) band=5g ;;
+        esac
+    fi
+    case "$band" in
+        2g) ssid='Not your internet^_^' ;;
+        5g) ssid='Not your internet^_^ 5G' ;;
+        *) continue ;;
+    esac
+
+    # Use existing per-device AP section, creating one if the driver did not.
+    iface=
+    for item in $ifaces; do
+        if [ "$(uci -q get "wireless.$item.device" 2>/dev/null || true)" = "$radio" ] &&
+           [ "$(uci -q get "wireless.$item.mode" 2>/dev/null || echo ap)" = ap ]; then
+            iface="$item"
+            break
+        fi
+    done
+    if [ -z "$iface" ]; then
+        iface="$(uci add wireless wifi-iface)" || exit 1
+        ifaces="$ifaces $iface"
+        uci set "wireless.$iface.device=$radio"
+    fi
+
+    # Do not overwrite a customized AP from an existing backup.
+    prev_ssid="$(uci -q get "wireless.$iface.ssid" 2>/dev/null || true)"
+    case "$prev_ssid" in
+        ''|OpenWrt|OpenWrt-2.4GHz|OpenWrt-5GHz)
+            uci set "wireless.$radio.disabled=0"
+            uci set "wireless.$iface.disabled=0"
+            uci set "wireless.$iface.mode=ap"
+            uci set "wireless.$iface.network=lan"
+            uci set "wireless.$iface.ssid=$ssid"
+            uci set "wireless.$iface.encryption=sae-mixed"
+            uci set "wireless.$iface.ieee80211w=1"
+            uci set "wireless.$iface.key=password123"
+            ;;
+    esac
+done
+
+uci commit network &&
+uci commit dhcp &&
+uci commit wireless || exit 1
+: > "$marker"
+echo "AX6 firstboot defaults installed: LAN 192.168.123.1 (on fresh setup), 2g/5g WPA2/WPA3. CHANGE PASSWORDS." >&2
+exit 0
